@@ -29,7 +29,7 @@ jobs:
         run: ./mvnw -f outcome-metrics-bom/pom.xml -B -ntp validate
       - name: Upload SBOM
         if: matrix.java == '25'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: "**/bom.json"
