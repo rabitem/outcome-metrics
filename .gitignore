@@ -12,3 +12,18 @@ target/
 dependency-reduced-pom.xml
 bom.xml
 bom.json
+
+# Secrets / local credentials (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.jks
+*.keystore
+credentials.json
+**/secrets/**
+.mvn/maven.config.local
+
+# JMH raw run artifacts (committed summary lives in benchmarks/RESULTS.md)
+benchmarks/results/

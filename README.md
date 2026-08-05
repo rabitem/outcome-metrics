@@ -10,6 +10,8 @@ Record a unit of work once → get a timer today and a trace span when tracing i
 
 > Status: **0.1.0** (pre-1.0). APIs may still move.
 
+**Docs:** [Handbook](docs/handbook/README.md) · [Samples](samples/README.md) · [JMH](benchmarks/README.md) · [llms.txt](llms.txt)
+
 ## Modules
 
 | Artifact | Purpose | Dependencies |
@@ -97,6 +99,21 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | Classified successes | Still emit `outcome`/`reason`, plus sanitized result tags |
 | Config prefix | `outcome.metrics.*` frozen until 1.0 |
 | Quarkus extension status | `preview` until broader production dogfooding |
+
+## Samples
+
+Runnable Spring Boot and Quarkus demos (not part of the library reactor):
+
+| Demo | Port | Metrics |
+|---|---|---|
+| [`samples/spring-boot-demo`](samples/spring-boot-demo/) | 18080 | `/actuator/prometheus` |
+| [`samples/quarkus-demo`](samples/quarkus-demo/) | 18081 | `/q/metrics` |
+
+```bash
+./mvnw -B -ntp install -DskipTests
+./mvnw -f outcome-metrics-bom/pom.xml -B -ntp install
+./mvnw -f samples/pom.xml -B verify
+```
 
 ## Build
 

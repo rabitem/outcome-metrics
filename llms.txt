@@ -1,0 +1,47 @@
+# outcome-metrics
+
+Micrometer outcome observations + cardinality limits for Spring Boot and Quarkus.
+0.1.0 preview · Java 21+ · config: `outcome.metrics.*`
+
+## Docs
+
+- [Handbook](docs/handbook/README.md)
+- [Quickstart](docs/handbook/01-quickstart.md)
+- [API](docs/handbook/02-api.md)
+- [Spring Boot](docs/handbook/03-spring-boot.md)
+- [Quarkus](docs/handbook/04-quarkus.md)
+- [Cardinality](docs/handbook/05-cardinality.md)
+- [Testing](docs/handbook/06-testing.md)
+- [When to use](docs/handbook/07-when-to-use.md)
+- [Operations](docs/handbook/08-operations.md)
+- [Samples](samples/README.md)
+- [JMH](benchmarks/README.md)
+
+## Artifacts
+
+| Artifact | Purpose |
+|---|---|
+| `outcome-metrics` | Core: `OutcomeObservations`, `@MeasuredOutcome`, filters |
+| `outcome-metrics-spring-boot-starter` | Spring Boot 4 auto-config + AOP |
+| `outcome-metrics-quarkus` | Quarkus extension (preview) |
+| `outcome-metrics-bom` | BOM |
+
+## API cheat sheet
+
+```java
+observations.record("order.place", MetricsTags.pairs("channel=web"), () -> place());
+
+@MeasuredOutcome(name = "order.reserve", tags = {"step=reserve"})
+public Reservation reserve(String sku) { ... }
+
+// domain exception
+public OutcomeReason outcomeReason() { return () -> "payment_declined"; }
+```
+
+Tags: `outcome=success|failure`, `reason=none|unknown|<code>`.
+Overflow: remap to `other`; gauge `outcome.metrics.tag_value_overflows`.
+
+## Samples
+
+- Spring `:18080` → `/actuator/prometheus`
+- Quarkus `:18081` → `/q/metrics`

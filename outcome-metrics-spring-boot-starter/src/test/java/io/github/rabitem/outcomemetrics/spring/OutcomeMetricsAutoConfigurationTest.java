@@ -71,6 +71,7 @@ class OutcomeMetricsAutoConfigurationTest {
                         "outcome.metrics.tag-limits[0].maximum-values=12")
                 .run(context -> {
                     assertThat(context).hasBean("meterTagValueLimiter");
+                    assertThat(context).hasBean("tagValueOverflowMeterBinder");
                     assertThat(context.getBean(OutcomeMetricsProperties.class).meterTagLimits())
                             .singleElement()
                             .satisfies(limit -> {

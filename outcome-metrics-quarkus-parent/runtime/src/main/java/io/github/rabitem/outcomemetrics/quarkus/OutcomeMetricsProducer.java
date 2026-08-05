@@ -11,7 +11,9 @@ import io.micrometer.core.instrument.observation.DefaultMeterObservationHandler;
 import io.micrometer.observation.ObservationRegistry;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.arc.lookup.LookupIfProperty;
+import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Singleton;
@@ -86,33 +88,47 @@ public class OutcomeMetricsProducer {
     }
 
     /**
-     * Bounded tag-value filter from configured limits, with overflow telemetry.
+     * Bounded tag-value filter from configured limits.
      *
-     * @param config        outcome metrics config
-     * @param meterRegistry Micrometer registry for overflow gauge
+     * <p>Overflow gauge registration is deferred to {@link #registerTagValueOverflowGauge} so the
+     * filter can be applied while the {@link MeterRegistry} is still being constructed.
+     *
+     * @param config outcome metrics config
      * @return meter filter
      */
     @Produces
     @Singleton
     @LookupIfProperty(name = "outcome.metrics.enabled", stringValue = "true", lookupIfMissing = true)
-    public MeterFilter outcomeMetricsTagValueLimiter(
-            final OutcomeMetricsConfig config,
-            final MeterRegistry meterRegistry) {
+    public OverflowAwareMeterFilter outcomeMetricsTagValueLimiter(final OutcomeMetricsConfig config) {
         final List<MeterTagLimit> limits = config.tagLimits().stream()
                 .map(limit -> new MeterTagLimit(
                         limit.meterNamePrefix(),
                         limit.tagKey(),
                         limit.maximumValues()))
                 .toList();
-        final OverflowAwareMeterFilter filter = MetricsMeterFilters.boundedTagValues(limits);
-        if (!limits.isEmpty()) {
-            Gauge.builder(
-                            "outcome.metrics.tag_value_overflows",
-                            filter,
-                            OverflowAwareMeterFilter::overflowCount)
-                    .description("Count of tag values remapped to other by outcome-metrics cardinality limits")
-                    .register(meterRegistry);
+        return MetricsMeterFilters.boundedTagValues(limits);
+    }
+
+    /**
+     * Registers overflow telemetry once the application {@link MeterRegistry} is available.
+     *
+     * @param event                   Quarkus startup event
+     * @param tagValueLimiters        optional bounded tag-value filter
+     * @param meterRegistry           Micrometer registry
+     */
+    void registerTagValueOverflowGauge(
+            @Observes final StartupEvent event,
+            final Instance<OverflowAwareMeterFilter> tagValueLimiters,
+            final OutcomeMetricsConfig config,
+            final MeterRegistry meterRegistry) {
+        if (!tagValueLimiters.isResolvable() || config.tagLimits().isEmpty()) {
+            return;
         }
-        return filter;
+        Gauge.builder(
+                        "outcome.metrics.tag_value_overflows",
+                        tagValueLimiters.get(),
+                        OverflowAwareMeterFilter::overflowCount)
+                .description("Count of tag values remapped to other by outcome-metrics cardinality limits")
+                .register(meterRegistry);
     }
 }

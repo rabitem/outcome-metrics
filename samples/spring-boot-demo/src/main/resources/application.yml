@@ -1,0 +1,32 @@
+server:
+  # 18080 avoids clashing with common local listeners on 8080
+  port: 18080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: never
+  observations:
+    annotations:
+      enabled: true
+
+outcome:
+  metrics:
+    enabled: true
+    max-meters: 50000
+    annotation:
+      enabled: true
+    cache:
+      normalize-tags: true
+    tag-limits:
+      - meter-name-prefix: demo.order.
+        tag-key: channel
+        maximum-values: 8
+
+logging:
+  level:
+    io.github.rabitem.outcomemetrics: INFO

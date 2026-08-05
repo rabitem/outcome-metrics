@@ -4,10 +4,10 @@ import io.github.rabitem.outcomemetrics.MetricsMeterFilters;
 import io.github.rabitem.outcomemetrics.OverflowAwareMeterFilter;
 import io.github.rabitem.outcomemetrics.observation.OutcomeObservations;
 import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.MeterBinder;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.observation.ObservationRegistry;
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -70,24 +70,36 @@ public class OutcomeMetricsAutoConfiguration {
     /**
      * Creates a tag-value cardinality limiter when tag limits are configured.
      *
-     * @param properties    the bound metrics properties; must not be {@code null}
-     * @param meterRegistry optional registry used to expose overflow telemetry
+     * <p>Does not touch {@code MeterRegistry} here: registries apply {@link MeterFilter} beans while
+     * they are still being created, so eager registry lookup caused a Boot circular dependency.
+     *
+     * @param properties the bound metrics properties; must not be {@code null}
      * @return the tag-value cardinality limiter, never {@code null}
      */
-    @Bean
+    @Bean(name = "meterTagValueLimiter")
     @ConditionalOnMissingBean(name = "meterTagValueLimiter")
     @Conditional(NonEmptyTagLimitsCondition.class)
-    MeterFilter meterTagValueLimiter(
-            final OutcomeMetricsProperties properties,
-            final ObjectProvider<MeterRegistry> meterRegistry) {
-        final OverflowAwareMeterFilter filter = MetricsMeterFilters.boundedTagValues(properties.meterTagLimits());
-        meterRegistry.ifAvailable(registry -> Gauge.builder(
+    OverflowAwareMeterFilter meterTagValueLimiter(final OutcomeMetricsProperties properties) {
+        return MetricsMeterFilters.boundedTagValues(properties.meterTagLimits());
+    }
+
+    /**
+     * Binds overflow telemetry after meter registries exist.
+     *
+     * @param meterTagValueLimiter the bounded tag-value filter; must not be {@code null}
+     * @return meter binder for {@code outcome.metrics.tag_value_overflows}, never {@code null}
+     */
+    @Bean
+    @ConditionalOnBean(name = "meterTagValueLimiter")
+    @ConditionalOnMissingBean(name = "tagValueOverflowMeterBinder")
+    MeterBinder tagValueOverflowMeterBinder(
+            @Qualifier("meterTagValueLimiter") final OverflowAwareMeterFilter meterTagValueLimiter) {
+        return registry -> Gauge.builder(
                         "outcome.metrics.tag_value_overflows",
-                        filter,
+                        meterTagValueLimiter,
                         OverflowAwareMeterFilter::overflowCount)
                 .description("Count of tag values remapped to other by outcome-metrics cardinality limits")
-                .register(registry));
-        return filter;
+                .register(registry);
     }
 
     /**

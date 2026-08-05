@@ -14,9 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `outcome-metrics-spring-boot-starter` with `outcome.metrics.*` configuration and AOP interception.
 - `outcome-metrics-quarkus` extension (CDI producers, meter filters, interceptor).
 - Thin `outcome-metrics-bom` for version alignment.
+- Developer handbook (`docs/handbook/`), `llms.txt`, samples (`:18080` / `:18081`), JMH suite (`benchmarks/`).
 
 ### Changed
 
+- Spring/Quarkus: defer tag-value overflow gauge registration so MeterFilter beans cannot circular-depend on `MeterRegistry` creation (Boot 4 + Prometheus).
 - CI/CD: pin GitHub Actions to commit SHAs; Dependabot grouped weekly updates with cooldown.
 - Build plugins: CycloneDX 2.9.3, Central publishing 0.11.0; JSpecify 1.0.1.
 - Unclassified failure reasons map to `unknown` (exception class names are opt-in via `MetricTagValues.exceptionCode`).
