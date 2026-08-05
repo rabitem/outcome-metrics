@@ -1,0 +1,12 @@
+name: Outcome Metrics
+description: Micrometer outcome observations and cardinality guardrails
+metadata:
+  keywords:
+    - metrics
+    - micrometer
+    - observation
+    - cardinality
+  categories:
+    - "observability"
+  status: "preview"
+  guide: https://github.com/rabitem/outcome-metrics

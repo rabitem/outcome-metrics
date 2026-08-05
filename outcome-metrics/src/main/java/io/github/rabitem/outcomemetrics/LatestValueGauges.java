@@ -1,0 +1,70 @@
+package io.github.rabitem.outcomemetrics;
+
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * Maintains last-value gauges keyed by metric name and explicit low-cardinality tags.
+ *
+ * <p>Micrometer gauges keep only a weak reference to observed state unless the registry
+ * retains the state holder. This helper owns those holders and updates them by series.
+ * Callers must keep tag values bounded; pair with {@link MetricsMeterFilters#boundedTagValues(List)}
+ * for untrusted or tenant-scoped dimensions.
+ *
+ * @since 0.1.0
+ */
+public final class LatestValueGauges {
+
+    private final MeterRegistry meterRegistry;
+    private final ConcurrentMap<GaugeSeries, AtomicLong> holders = new ConcurrentHashMap<>();
+
+    /**
+     * Creates a registry-backed gauge helper.
+     *
+     * @param meterRegistry Micrometer registry; must not be {@code null}
+     */
+    public LatestValueGauges(final MeterRegistry meterRegistry) {
+        this.meterRegistry = Objects.requireNonNull(meterRegistry, "meterRegistry must not be null");
+    }
+
+    /**
+     * Sets the current value for one gauge series, creating the gauge on first use.
+     *
+     * @param name        meter name; must not be blank
+     * @param description meter description; may be {@code null}
+     * @param tags        explicit low-cardinality tags; must not be {@code null}
+     * @param value       current value to expose
+     */
+    public void set(final String name, final String description, final Iterable<Tag> tags, final long value) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Gauge name must not be blank");
+        }
+        final List<Tag> tagList = Tags.of(Objects.requireNonNull(tags, "tags must not be null")).stream().toList();
+        final GaugeSeries series = new GaugeSeries(name.strip(), tagList);
+        final AtomicLong holder = holders.computeIfAbsent(series, key -> {
+            final AtomicLong fresh = new AtomicLong();
+            Gauge.builder(key.name(), fresh, AtomicLong::doubleValue)
+                    .description(description)
+                    .tags(tagList)
+                    .register(meterRegistry);
+            return fresh;
+        });
+        holder.set(value);
+    }
+
+    private record GaugeSeries(String name, List<Tag> tags) {
+
+        private GaugeSeries {
+            name = name.strip();
+            tags = List.copyOf(tags);
+        }
+    }
+}

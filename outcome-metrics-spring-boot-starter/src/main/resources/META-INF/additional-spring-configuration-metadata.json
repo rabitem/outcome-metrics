@@ -1,0 +1,40 @@
+{
+  "groups": [
+    {
+      "name": "outcome.metrics",
+      "type": "io.github.rabitem.outcomemetrics.spring.OutcomeMetricsProperties",
+      "description": "Outcome metrics cardinality and annotation interception settings."
+    }
+  ],
+  "properties": [
+    {
+      "name": "outcome.metrics.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether outcome metrics auto-configuration is enabled.",
+      "defaultValue": true
+    },
+    {
+      "name": "outcome.metrics.max-meters",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of meters allowed in the registry.",
+      "defaultValue": 50000
+    },
+    {
+      "name": "outcome.metrics.cache.normalize-tags",
+      "type": "java.lang.Boolean",
+      "description": "Whether to strip high-cardinality tags from cache.* meters.",
+      "defaultValue": true
+    },
+    {
+      "name": "outcome.metrics.annotation.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether @MeasuredOutcome AOP interception is enabled.",
+      "defaultValue": true
+    },
+    {
+      "name": "outcome.metrics.tag-limits",
+      "type": "java.util.List<io.github.rabitem.outcomemetrics.spring.OutcomeMetricsProperties$TagLimit>",
+      "description": "Per meter-name-prefix tag-value cardinality limits. Overflow values remap to 'other'."
+    }
+  ]
+}

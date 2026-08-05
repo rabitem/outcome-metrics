@@ -1,0 +1,5 @@
+# Default owner for all paths
+* @rabitem
+
+# Protect ownership rules themselves
+/.github/CODEOWNERS @rabitem

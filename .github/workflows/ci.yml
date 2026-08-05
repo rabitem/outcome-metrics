@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ["21", "25"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      - name: Verify
+        run: ./mvnw -B -ntp verify
+      - name: Validate BOM
+        run: ./mvnw -f outcome-metrics-bom/pom.xml -B -ntp validate
+      - name: Upload SBOM
+        if: matrix.java == '25'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: "**/bom.json"
+          if-no-files-found: error

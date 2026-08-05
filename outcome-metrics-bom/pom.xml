@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.rabitem</groupId>
+    <artifactId>outcome-metrics-bom</artifactId>
+    <version>0.1.0</version>
+    <packaging>pom</packaging>
+
+    <name>Outcome Metrics BOM</name>
+    <description>Bill of Materials for Outcome Metrics modules.</description>
+    <url>https://github.com/rabitem/outcome-metrics</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>rabitem</id>
+            <name>Felix Huisinga</name>
+            <url>https://github.com/rabitem</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/rabitem/outcome-metrics.git</connection>
+        <developerConnection>scm:git:https://github.com/rabitem/outcome-metrics.git</developerConnection>
+        <url>https://github.com/rabitem/outcome-metrics</url>
+    </scm>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.github.rabitem</groupId>
+                <artifactId>outcome-metrics</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.rabitem</groupId>
+                <artifactId>outcome-metrics-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.rabitem</groupId>
+                <artifactId>outcome-metrics-quarkus</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>
