@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CI/CD: pin GitHub Actions to commit SHAs; Dependabot grouped weekly updates with cooldown.
+- Build plugins: CycloneDX 2.9.3, Central publishing 0.11.0; JSpecify 1.0.1.
 - Unclassified failure reasons map to `unknown` (exception class names are opt-in via `MetricTagValues.exceptionCode`).
 - Tag-value cardinality overflow remaps to `other` instead of denying meter registration.
 - Classified successes keep the `outcome`/`reason` schema; result tags are sanitized.

@@ -4,8 +4,33 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+      day: monday
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    groups:
+      maven-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "org.springframework.boot*"
+          - "io.quarkus*"
+          - "io.micrometer*"
+      maven-platform:
+        patterns:
+          - "org.springframework.boot*"
+          - "io.quarkus*"
+          - "io.micrometer*"
+
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"
