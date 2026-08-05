@@ -97,5 +97,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Please use [private vulnerability report
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-Derived from observability utilities originally developed for [Rettungshelden](https://rettungshelden.de); this project is independently maintained under MIT.
