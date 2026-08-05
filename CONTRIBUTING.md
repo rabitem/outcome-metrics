@@ -25,6 +25,23 @@ Signed-off-by: Your Name <you@example.com>
 
 (`git commit -s`)
 
+## Code review
+
+Human review is required before merging to `main` (OpenSSF Scorecard
+[Code-Review](https://github.com/ossf/scorecard/blob/main/docs/checks.md#code-review)
+and Branch-Protection).
+
+- Every PR needs **at least one approving review** from someone other than the
+  last pusher.
+- Changes matching `.github/CODEOWNERS` need a **Code Owner** approval
+  (`@rabitem` today).
+- Bot reviews (Dependabot, AI bots, etc.) do **not** count as human review for
+  Scorecard.
+- Prefer merging via GitHub’s merge / squash / rebase UI after approval so the
+  review is recorded on the changeset.
+- Maintainers: do not routinely bypass review with admin privileges except for
+  emergencies; bypass weakens the Code-Review signal.
+
 ## Code style
 
 - Match existing formatting and Javadoc level.
