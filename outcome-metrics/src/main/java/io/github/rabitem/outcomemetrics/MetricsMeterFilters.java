@@ -54,12 +54,15 @@ public final class MetricsMeterFilters {
     }
 
     /**
-     * Creates a tag-value cardinality filter.
+     * Creates a tag-value cardinality filter that remaps overflows to {@link MetricTagValues#OTHER}.
+     *
+     * <p>The returned filter implements {@link OverflowAwareMeterFilter} so callers can expose
+     * {@link OverflowAwareMeterFilter#overflowCount()} as a gauge.
      *
      * @param limits tag-value limits; must not be {@code null}
      * @return a tag-value cardinality filter, never {@code null}
      */
-    public static MeterFilter boundedTagValues(final List<MeterTagLimit> limits) {
+    public static OverflowAwareMeterFilter boundedTagValues(final List<MeterTagLimit> limits) {
         return new BoundedTagValueMeterFilter(limits);
     }
 }

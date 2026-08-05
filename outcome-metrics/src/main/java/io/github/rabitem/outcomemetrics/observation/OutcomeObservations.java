@@ -18,7 +18,7 @@ import java.util.function.Supplier;
  *
  * @since 0.1.0
  */
-public class OutcomeObservations {
+public final class OutcomeObservations {
 
     private final ObservationRegistry observationRegistry;
 

@@ -23,3 +23,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MetricTagValues.reasonCode` walks the cause chain for `OutcomeReasonSource`.
 - Spring: `outcome.metrics.enabled` kill switch; skip empty tag-limit filter beans; safe target resolution for static join points.
 - Quarkus: `@DefaultBean` OutcomeObservations, extension status `preview`, interface annotation lookup, removable CDI beans.
+- Overflow telemetry via `outcome.metrics.tag_value_overflows`; `LatestValueGauges` series cap; Spring `@Validated` properties; AspectJ starter.

@@ -66,6 +66,7 @@ public Result apply(Command command) { ... }
 ```yaml
 outcome:
   metrics:
+    enabled: true
     max-meters: 50000
     cache:
       normalize-tags: true
@@ -77,11 +78,25 @@ outcome:
         maximum-values: 32
 ```
 
+`outcome.metrics.*` keys are public API: renames require a major version bump.
+
+Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_overflows` counts remaps.
+
 ## Rules of the road
 
 - Instrument **units of work**, not every method.
 - Tags must be **low-cardinality** (never raw user ids, emails, or free-text).
 - Prefer `OutcomeObservations` + `OutcomeReasonSource` over hand-rolled counters.
+
+## Design decisions
+
+| Decision | Choice |
+|---|---|
+| Unclassified failure `reason` | `unknown` (not exception class names) |
+| Tag-value overflow | Remap to `other` (meters stay visible) |
+| Classified successes | Still emit `outcome`/`reason`, plus sanitized result tags |
+| Config prefix | `outcome.metrics.*` frozen until 1.0 |
+| Quarkus extension status | `preview` until broader production dogfooding |
 
 ## Build
 

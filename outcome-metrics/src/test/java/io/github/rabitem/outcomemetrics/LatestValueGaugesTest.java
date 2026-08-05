@@ -16,7 +16,7 @@ class LatestValueGaugesTest {
     void updatesSeriesInPlace() {
         final SimpleMeterRegistry registry = new SimpleMeterRegistry();
         final LatestValueGauges gauges = new LatestValueGauges(registry);
-        final Tags tags = Tags.of("job_type", "CAPACITY_IMPORT", "tenant_id", "tenant-1");
+        final Tags tags = Tags.of("job_type", "CAPACITY_IMPORT", "status", "failed");
 
         gauges.set("appointo_sync_failed_items", "Failed items", tags, 2);
         gauges.set("appointo_sync_failed_items", "Failed items", tags, 5);
@@ -24,7 +24,7 @@ class LatestValueGaugesTest {
         assertThat(registry.find("appointo_sync_failed_items").gauges()).hasSize(1);
         assertThat(registry.get("appointo_sync_failed_items")
                 .tag("job_type", "CAPACITY_IMPORT")
-                .tag("tenant_id", "tenant-1")
+                .tag("status", "failed")
                 .gauge()
                 .value())
                 .isEqualTo(5.0);
@@ -36,14 +36,24 @@ class LatestValueGaugesTest {
         final SimpleMeterRegistry registry = new SimpleMeterRegistry();
         final LatestValueGauges gauges = new LatestValueGauges(registry);
 
-        gauges.set("sync_items", "Items", Tags.of("tenant_id", "tenant-1"), 1);
-        gauges.set("sync_items", "Items", Tags.of("tenant_id", "tenant-2"), 2);
+        gauges.set("sync_items", "Items", Tags.of("job_type", "import"), 1);
+        gauges.set("sync_items", "Items", Tags.of("job_type", "export"), 2);
 
         assertThat(registry.find("sync_items").gauges()).hasSize(2);
-        assertThat(registry.get("sync_items").tag("tenant_id", "tenant-1").gauge().value())
-                .isEqualTo(1.0);
-        assertThat(registry.get("sync_items").tag("tenant_id", "tenant-2").gauge().value())
-                .isEqualTo(2.0);
+        assertThat(registry.get("sync_items").tag("job_type", "import").gauge().value()).isEqualTo(1.0);
+        assertThat(registry.get("sync_items").tag("job_type", "export").gauge().value()).isEqualTo(2.0);
+    }
+
+    @Test
+    @DisplayName("enforces a hard series cap")
+    void enforcesSeriesCap() {
+        final LatestValueGauges gauges = new LatestValueGauges(new SimpleMeterRegistry(), 1);
+        gauges.set("sync_items", "Items", Tags.of("job_type", "import"), 1);
+
+        assertThatThrownBy(() -> gauges.set("sync_items", "Items", Tags.of("job_type", "export"), 2))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("series limit exceeded");
+        assertThat(gauges.seriesCount()).isEqualTo(1);
     }
 
     @Test
@@ -52,6 +62,9 @@ class LatestValueGaugesTest {
         assertThatThrownBy(() -> new LatestValueGauges(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("meterRegistry must not be null");
+        assertThatThrownBy(() -> new LatestValueGauges(new SimpleMeterRegistry(), 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("maxSeries must be positive");
 
         final LatestValueGauges gauges = new LatestValueGauges(new SimpleMeterRegistry());
         assertThatThrownBy(() -> gauges.set(" ", "Items", Tags.empty(), 1))

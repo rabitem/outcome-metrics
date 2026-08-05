@@ -51,9 +51,9 @@ class MetricsMeterFiltersTest {
     }
 
     @Test
-    @DisplayName("remaps overflowing tag values to other")
+    @DisplayName("remaps overflowing tag values to other and counts overflows")
     void tagValueLimit() {
-        final MeterFilter filter = MetricsMeterFilters.boundedTagValues(List.of(
+        final OverflowAwareMeterFilter filter = MetricsMeterFilters.boundedTagValues(List.of(
                 new MeterTagLimit("websocket.", "destination", 2)));
 
         assertThat(filter.map(id("websocket.send", Tags.of("destination", "admin")))
@@ -64,6 +64,7 @@ class MetricsMeterFiltersTest {
                 .getTag("destination")).isEqualTo("admin");
         assertThat(filter.map(id("websocket.send", Tags.of("destination", "private")))
                 .getTag("destination")).isEqualTo(MetricTagValues.OTHER);
+        assertThat(filter.overflowCount()).isEqualTo(1);
         assertThat(filter.map(id("http.server.requests", Tags.of("destination", "private")))
                 .getTag("destination")).isEqualTo("private");
         assertThat(filter.map(id("websocket.send", Tags.of("status", "ok")))

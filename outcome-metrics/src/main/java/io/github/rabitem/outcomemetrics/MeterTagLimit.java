@@ -5,6 +5,10 @@ import java.util.Objects;
 /**
  * Cardinality limit for one metric-name prefix and one tag key.
  *
+ * <p>Matching uses {@link String#startsWith(String)} on the meter name. Prefer prefixes that end
+ * with {@code .} (for example {@code websocket.}) so {@code web} does not also match
+ * {@code webhook.send}.
+ *
  * @param meterNamePrefix metric name prefix to match; must not be blank
  * @param tagKey          tag key to count; must not be blank
  * @param maximumValues   maximum distinct tag values to allow; must be positive

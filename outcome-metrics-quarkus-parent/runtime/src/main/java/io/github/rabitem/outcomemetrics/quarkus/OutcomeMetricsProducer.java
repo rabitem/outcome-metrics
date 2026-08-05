@@ -2,7 +2,9 @@ package io.github.rabitem.outcomemetrics.quarkus;
 
 import io.github.rabitem.outcomemetrics.MeterTagLimit;
 import io.github.rabitem.outcomemetrics.MetricsMeterFilters;
+import io.github.rabitem.outcomemetrics.OverflowAwareMeterFilter;
 import io.github.rabitem.outcomemetrics.observation.OutcomeObservations;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.observation.DefaultMeterObservationHandler;
@@ -84,21 +86,33 @@ public class OutcomeMetricsProducer {
     }
 
     /**
-     * Bounded tag-value filter from configured limits.
+     * Bounded tag-value filter from configured limits, with overflow telemetry.
      *
-     * @param config outcome metrics config
+     * @param config        outcome metrics config
+     * @param meterRegistry Micrometer registry for overflow gauge
      * @return meter filter
      */
     @Produces
     @Singleton
     @LookupIfProperty(name = "outcome.metrics.enabled", stringValue = "true", lookupIfMissing = true)
-    public MeterFilter outcomeMetricsTagValueLimiter(final OutcomeMetricsConfig config) {
+    public MeterFilter outcomeMetricsTagValueLimiter(
+            final OutcomeMetricsConfig config,
+            final MeterRegistry meterRegistry) {
         final List<MeterTagLimit> limits = config.tagLimits().stream()
                 .map(limit -> new MeterTagLimit(
                         limit.meterNamePrefix(),
                         limit.tagKey(),
                         limit.maximumValues()))
                 .toList();
-        return MetricsMeterFilters.boundedTagValues(limits);
+        final OverflowAwareMeterFilter filter = MetricsMeterFilters.boundedTagValues(limits);
+        if (!limits.isEmpty()) {
+            Gauge.builder(
+                            "outcome.metrics.tag_value_overflows",
+                            filter,
+                            OverflowAwareMeterFilter::overflowCount)
+                    .description("Count of tag values remapped to other by outcome-metrics cardinality limits")
+                    .register(meterRegistry);
+        }
+        return filter;
     }
 }

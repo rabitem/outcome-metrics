@@ -1,10 +1,13 @@
 package io.github.rabitem.outcomemetrics.spring;
 
 import io.github.rabitem.outcomemetrics.MetricsMeterFilters;
+import io.github.rabitem.outcomemetrics.OverflowAwareMeterFilter;
 import io.github.rabitem.outcomemetrics.observation.OutcomeObservations;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.observation.ObservationRegistry;
-import org.aspectj.lang.ProceedingJoinPoint;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -67,14 +70,24 @@ public class OutcomeMetricsAutoConfiguration {
     /**
      * Creates a tag-value cardinality limiter when tag limits are configured.
      *
-     * @param properties the bound metrics properties; must not be {@code null}
+     * @param properties    the bound metrics properties; must not be {@code null}
+     * @param meterRegistry optional registry used to expose overflow telemetry
      * @return the tag-value cardinality limiter, never {@code null}
      */
     @Bean
     @ConditionalOnMissingBean(name = "meterTagValueLimiter")
     @Conditional(NonEmptyTagLimitsCondition.class)
-    MeterFilter meterTagValueLimiter(final OutcomeMetricsProperties properties) {
-        return MetricsMeterFilters.boundedTagValues(properties.meterTagLimits());
+    MeterFilter meterTagValueLimiter(
+            final OutcomeMetricsProperties properties,
+            final ObjectProvider<MeterRegistry> meterRegistry) {
+        final OverflowAwareMeterFilter filter = MetricsMeterFilters.boundedTagValues(properties.meterTagLimits());
+        meterRegistry.ifAvailable(registry -> Gauge.builder(
+                        "outcome.metrics.tag_value_overflows",
+                        filter,
+                        OverflowAwareMeterFilter::overflowCount)
+                .description("Count of tag values remapped to other by outcome-metrics cardinality limits")
+                .register(registry));
+        return filter;
     }
 
     /**
@@ -84,7 +97,6 @@ public class OutcomeMetricsAutoConfiguration {
      * @return the measured outcome aspect, never {@code null}
      */
     @Bean
-    @ConditionalOnClass(ProceedingJoinPoint.class)
     @ConditionalOnBean(OutcomeObservations.class)
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "outcome.metrics.annotation", name = "enabled", havingValue = "true", matchIfMissing = true)

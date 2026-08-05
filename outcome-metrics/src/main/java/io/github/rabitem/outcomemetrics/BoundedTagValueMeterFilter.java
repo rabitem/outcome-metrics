@@ -2,7 +2,6 @@ package io.github.rabitem.outcomemetrics;
 
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.config.MeterFilter;
 import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
@@ -10,6 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Remaps overflowing tag values to {@link MetricTagValues#OTHER} once configured limits are exceeded.
@@ -17,13 +17,19 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Meters stay visible (unlike {@code DENY}), so cardinality explosions become a single observable
  * overflow bucket instead of silent disappearance.
  */
-final class BoundedTagValueMeterFilter implements MeterFilter {
+final class BoundedTagValueMeterFilter implements OverflowAwareMeterFilter {
 
     private final List<MeterTagLimit> limits;
     private final ConcurrentHashMap<MeterTagLimit, Set<String>> observedValues = new ConcurrentHashMap<>();
+    private final AtomicLong overflowCount = new AtomicLong();
 
     BoundedTagValueMeterFilter(final List<MeterTagLimit> limits) {
         this.limits = List.copyOf(Objects.requireNonNull(limits, "limits must not be null"));
+    }
+
+    @Override
+    public long overflowCount() {
+        return overflowCount.get();
     }
 
     @Override
@@ -58,12 +64,16 @@ final class BoundedTagValueMeterFilter implements MeterFilter {
     }
 
     private String mapValue(final MeterTagLimit limit, final String tagValue) {
+        if (MetricTagValues.OTHER.equals(tagValue)) {
+            return tagValue;
+        }
         final Set<String> values = observedValues.computeIfAbsent(limit, ignored -> ConcurrentHashMap.newKeySet());
         synchronized (values) {
             if (values.contains(tagValue)) {
                 return tagValue;
             }
             if (values.size() >= limit.maximumValues()) {
+                overflowCount.incrementAndGet();
                 return MetricTagValues.OTHER;
             }
             values.add(tagValue);

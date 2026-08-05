@@ -1,5 +1,6 @@
 package io.github.rabitem.outcomemetrics;
 
+import io.github.rabitem.outcomemetrics.observation.OutcomeReason;
 import io.github.rabitem.outcomemetrics.observation.OutcomeReasonSource;
 
 import java.util.Locale;
@@ -42,7 +43,10 @@ public final class MetricTagValues {
         Throwable current = error;
         while (current != null) {
             if (current instanceof OutcomeReasonSource source) {
-                return sanitizeTagValue(source.outcomeReason().code());
+                final OutcomeReason reason = source.outcomeReason();
+                if (reason != null && reason.code() != null && !reason.code().isBlank()) {
+                    return sanitizeTagValue(reason.code());
+                }
             }
             current = current.getCause();
         }

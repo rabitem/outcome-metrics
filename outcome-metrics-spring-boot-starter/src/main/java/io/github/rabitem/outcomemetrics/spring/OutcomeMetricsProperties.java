@@ -1,7 +1,11 @@
 package io.github.rabitem.outcomemetrics.spring;
 
 import io.github.rabitem.outcomemetrics.MeterTagLimit;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -13,14 +17,22 @@ import java.util.Set;
  *
  * @since 0.1.0
  */
+@Validated
 @ConfigurationProperties(prefix = "outcome.metrics")
 public class OutcomeMetricsProperties {
 
     private boolean enabled = true;
+
+    @Min(1)
     private int maxMeters = 50_000;
+
+    @Valid
     private final Cache cache = new Cache();
+
+    @Valid
     private final Interception annotation = new Interception();
-    private final List<TagLimit> tagLimits = new ArrayList<>();
+
+    private final List<@Valid TagLimit> tagLimits = new ArrayList<>();
 
     /**
      * Returns whether outcome metrics auto-configuration is enabled.
@@ -177,8 +189,13 @@ public class OutcomeMetricsProperties {
      */
     public static class TagLimit {
 
+        @NotBlank
         private String meterNamePrefix;
+
+        @NotBlank
         private String tagKey;
+
+        @Min(1)
         private int maximumValues = 100;
 
         /**
