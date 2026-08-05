@@ -7,26 +7,35 @@ This project participates in the
 
 ## Status
 
-Register (or update) the badge entry here:
+- **BadgeApp project:** [13963](https://www.bestpractices.dev/projects/13963)
+- **Repo proposals file:** [`.bestpractices.json`](../.bestpractices.json)
+  (read by BadgeApp automation on edit / “Save and continue 🤖”)
 
-https://www.bestpractices.dev/en/projects/new
-
-Use repository URL:
-
-`https://github.com/rabitem/outcome-metrics`
-
-After the project exists on BadgeApp, add the badge to `README.md`:
+README badge:
 
 ```markdown
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/<ID>/badge)](https://www.bestpractices.dev/projects/<ID>)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13963/badge)](https://www.bestpractices.dev/projects/13963)
 ```
 
 Even an in-progress entry raises the Scorecard CII check from `0` to `2`.
 A passing badge scores `5`.
 
-## Passing checklist (initial)
+## Automation proposals (URL)
 
-Map evidence already in-repo when filling the form:
+External tools can propose criterion values via a project edit URL
+([docs](https://github.com/ossf/best-practices-badge/blob/main/docs/automation-proposals.md)).
+Example (baseline access-control criteria):
+
+https://www.bestpractices.dev/en/projects/13963/choose/edit?osps_ac_01_01_status=Met&osps_ac_01_01_justification=GitHub+enforced+MFA&osps_ac_03_01_status=Met&osps_ac_03_01_justification=Ruleset+requires+PRs+on+main&overrides=osps_ac_*
+
+Or look up by repository URL:
+
+https://www.bestpractices.dev/en/projects?as=edit&url=https%3A%2F%2Fgithub.com%2Frabitem%2Foutcome-metrics&section=baseline-1
+
+After opening an edit URL while logged in as a project owner, review the
+yellow/orange highlighted proposals and save.
+
+## Passing checklist (initial)
 
 | Criterion area | Evidence |
 |---|---|
@@ -39,3 +48,4 @@ Map evidence already in-repo when filling the form:
 | Dependency updates | [`.github/dependabot.yml`](../.github/dependabot.yml) |
 | Static analysis | [`.github/workflows/codeql.yml`](../.github/workflows/codeql.yml) |
 | Supply-chain scorecard | [`.github/workflows/scorecard.yml`](../.github/workflows/scorecard.yml) |
+| Fuzzing | [`fuzz/`](../fuzz/), [`.clusterfuzzlite/`](../.clusterfuzzlite/) |

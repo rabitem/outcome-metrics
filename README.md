@@ -3,6 +3,7 @@
 [![CI](https://github.com/rabitem/outcome-metrics/actions/workflows/ci.yml/badge.svg)](https://github.com/rabitem/outcome-metrics/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/rabitem/outcome-metrics/badge)](https://scorecard.dev/viewer/?uri=github.com/rabitem/outcome-metrics)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13963/badge)](https://www.bestpractices.dev/projects/13963)
 
 Micrometer **outcome observations** and **cardinality guardrails**, with thin adapters for **Spring Boot** and **Quarkus**.
 
