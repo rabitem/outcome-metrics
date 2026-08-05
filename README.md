@@ -10,7 +10,7 @@ Record a unit of work once → get a timer today and a trace span when tracing i
 
 > Status: **0.1.0** (pre-1.0). APIs may still move.
 
-**Docs:** [Handbook](docs/handbook/README.md) · [Samples](samples/README.md) · [JMH](benchmarks/README.md) · [llms.txt](llms.txt)
+**Docs:** [Handbook](docs/handbook/README.md) · [Samples](samples/README.md) · [JMH](benchmarks/README.md) · [OpenSSF Best Practices](docs/openssf-best-practices.md) · [llms.txt](llms.txt)
 
 ## Modules
 
