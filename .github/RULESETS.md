@@ -33,5 +33,10 @@ is available.
 
 | Setting | Value |
 |---|---|
-| Restrict creations / updates / deletions | on (immutable release tags) |
+| Restrict deletions | on |
 | Block force pushes | on |
+| Restrict creations / updates | off for solo maintainers (admins create `v*` tags to cut releases) |
+
+Immutable GitHub Releases still prevent mutating a published release’s assets.
+Do not reuse a tag name after a published immutable release — cut the next
+semver instead (`v0.1.0-beta.1` is burned; use `v0.1.0-beta.2`+).
