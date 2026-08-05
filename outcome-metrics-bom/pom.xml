@@ -6,7 +6,7 @@
 
     <groupId>io.github.rabitem</groupId>
     <artifactId>outcome-metrics-bom</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.0-beta.1</version>
     <packaging>pom</packaging>
 
     <name>Outcome Metrics BOM</name>

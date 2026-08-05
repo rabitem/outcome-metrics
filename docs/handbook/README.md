@@ -2,7 +2,7 @@
 
 How to add `outcome-metrics` to a Spring Boot or Quarkus service.
 
-**0.1.0 preview** · Java 21+ · config prefix `outcome.metrics.*` (stable until 1.0)
+**0.1.0-beta.1 preview** · Java 21+ · config prefix `outcome.metrics.*` (stable until 1.0)
 
 | I need to… | Go here |
 |---|---|

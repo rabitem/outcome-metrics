@@ -9,7 +9,7 @@ Micrometer **outcome observations** and **cardinality guardrails**, with thin ad
 
 Record a unit of work once → get a timer today and a trace span when tracing is configured. Overflowing tag values remap to `other` instead of vanishing.
 
-> Status: **0.1.0** (pre-1.0). APIs may still move.
+> Status: **0.1.0-beta.1** (pre-1.0). APIs may still move.
 
 **Docs:** [Handbook](docs/handbook/README.md) · [Samples](samples/README.md) · [JMH](benchmarks/README.md) · [OpenSSF Best Practices](docs/openssf-best-practices.md) · [llms.txt](llms.txt)
 
@@ -30,7 +30,7 @@ Requires **Java 21+**.
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-spring-boot-starter</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.0-beta.1</version>
 </dependency>
 ```
 
@@ -40,7 +40,7 @@ Requires **Java 21+**.
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-quarkus</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.0-beta.1</version>
 </dependency>
 ```
 

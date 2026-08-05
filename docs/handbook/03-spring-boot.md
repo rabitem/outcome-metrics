@@ -8,7 +8,7 @@ Requires **Spring Boot 4.1+**, Java 21+, and an `ObservationRegistry` bean.
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-spring-boot-starter</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.0-beta.1</version>
 </dependency>
 <dependency>
   <groupId>org.springframework.boot</groupId>
