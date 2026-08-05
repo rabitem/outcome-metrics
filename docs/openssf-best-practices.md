@@ -7,7 +7,7 @@ This project participates in the
 
 ## Status
 
-- **BadgeApp project:** [13963](https://www.bestpractices.dev/projects/13963)
+- **BadgeApp project:** [13963](https://www.bestpractices.dev/projects/13963) — **Passing (100%)**
 - **Repo proposals file:** [`.bestpractices.json`](../.bestpractices.json)
   (read by BadgeApp automation on edit / “Save and continue 🤖”)
 

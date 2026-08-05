@@ -5,229 +5,196 @@
   "repo_url": "https://github.com/rabitem/outcome-metrics",
   "license": "MIT",
   "implementation_languages": "Java",
-
   "description_good_status": "Met",
   "description_good_justification": "README.md succinctly describes Micrometer outcome observations and cardinality guardrails for Spring Boot and Quarkus.",
-
   "interact_status": "Met",
   "interact_justification": "README and GitHub provide obtain (Maven Central / clone), feedback (issues), and contribute (CONTRIBUTING.md + PRs).",
-
   "contribution_status": "Met",
-  "contribution_justification": "https://github.com/rabitem/outcome-metrics/blob/main/CONTRIBUTING.md documents issues, PRs, DCO, and review.",
-
+  "contribution_justification": "https://github.com/rabitem/outcome-metrics/blob/main/CONTRIBUTING.md \u2014 fork/branch/PR flow, DCO, and review expectations.",
   "contribution_requirements_status": "Met",
-  "contribution_requirements_justification": "CONTRIBUTING.md and .github/PULL_REQUEST_TEMPLATE.md list verify, tests, CHANGELOG, and DCO requirements.",
-
+  "contribution_requirements_justification": "https://github.com/rabitem/outcome-metrics/blob/main/CONTRIBUTING.md and https://github.com/rabitem/outcome-metrics/blob/main/.github/PULL_REQUEST_TEMPLATE.md",
   "license_location_status": "Met",
   "license_location_justification": "https://github.com/rabitem/outcome-metrics/blob/main/LICENSE",
-
   "floss_license_status": "Met",
   "floss_license_justification": "MIT License (SPDX MIT).",
-
   "floss_license_osi_status": "Met",
   "floss_license_osi_justification": "MIT is OSI-approved.",
-
   "documentation_basics_status": "Met",
   "documentation_basics_justification": "README.md plus docs/handbook/ cover install, usage, and design.",
-
   "documentation_interface_status": "Met",
   "documentation_interface_justification": "Javadoc on public APIs; handbook documents OutcomeObservations and config keys.",
-
   "documentation_quick_start_status": "Met",
   "documentation_quick_start_justification": "https://github.com/rabitem/outcome-metrics/blob/main/docs/handbook/01-quickstart.md",
-
   "documentation_security_status": "Met",
   "documentation_security_justification": "https://github.com/rabitem/outcome-metrics/blob/main/SECURITY.md",
-
   "sites_https_status": "Met",
   "sites_https_justification": "GitHub and documentation links use HTTPS.",
-
   "repo_public_status": "Met",
   "repo_public_justification": "Public GitHub repository.",
-
   "repo_track_status": "Met",
   "repo_track_justification": "Git with full history on GitHub.",
-
   "repo_interim_status": "Met",
   "repo_interim_justification": "Work lands via pull requests to main.",
-
   "repo_distributed_status": "Met",
   "repo_distributed_justification": "Git Distributed VCS; GitHub is the canonical remote.",
-
   "version_unique_status": "Met",
   "version_unique_justification": "Maven project.version identifies each release (e.g. 0.1.0).",
-
   "version_semver_status": "Met",
   "version_semver_justification": "Semantic Versioning via Maven versions and v* tags.",
-
   "version_tags_status": "Met",
   "version_tags_justification": "Release tags use v* (see .github/workflows/release.yml and tag ruleset).",
-
   "release_notes_status": "Met",
-  "release_notes_justification": "CHANGELOG.md; GitHub Releases populated from changelog sections.",
-
+  "release_notes_justification": "https://github.com/rabitem/outcome-metrics/blob/main/CHANGELOG.md",
   "english_status": "Met",
   "english_justification": "Documentation and UI strings are in English.",
-
   "report_url_status": "Met",
   "report_url_justification": "https://github.com/rabitem/outcome-metrics/issues",
-
   "report_tracker_status": "Met",
   "report_tracker_justification": "GitHub Issues.",
-
   "report_process_status": "Met",
-  "report_process_justification": "CONTRIBUTING.md and issue templates describe bug/feature reporting.",
-
+  "report_process_justification": "https://github.com/rabitem/outcome-metrics/blob/main/CONTRIBUTING.md and https://github.com/rabitem/outcome-metrics/issues",
   "vulnerability_report_process_status": "Met",
   "vulnerability_report_process_justification": "https://github.com/rabitem/outcome-metrics/blob/main/SECURITY.md",
-
   "vulnerability_report_private_status": "Met",
-  "vulnerability_report_private_justification": "GitHub private vulnerability reporting enabled; see SECURITY.md.",
-
+  "vulnerability_report_private_justification": "https://github.com/rabitem/outcome-metrics/security/advisories/new",
   "build_status": "Met",
   "build_justification": "./mvnw -B verify builds and tests the multi-module Maven reactor.",
-
   "build_common_tools_status": "Met",
   "build_common_tools_justification": "Apache Maven Wrapper + JDK 21+.",
-
   "build_floss_tools_status": "Met",
   "build_floss_tools_justification": "Maven, OpenJDK/Temurin, and GitHub Actions are FLOSS.",
-
   "test_status": "Met",
   "test_justification": "JUnit Jupiter unit tests under outcome-metrics/src/test.",
-
   "test_invocation_status": "Met",
   "test_invocation_justification": "./mvnw -B verify",
-
   "test_most_status": "Met",
   "test_most_justification": "Core API behaviors covered by unit tests (tags, filters, observations).",
-
   "test_continuous_integration_status": "Met",
   "test_continuous_integration_justification": "https://github.com/rabitem/outcome-metrics/blob/main/.github/workflows/ci.yml runs on PRs.",
-
   "tests_are_added_status": "Met",
   "tests_are_added_justification": "CONTRIBUTING.md and PR template require tests for new/changed behavior.",
-
   "dco_status": "Met",
   "dco_justification": "https://github.com/rabitem/outcome-metrics/blob/main/.github/workflows/dco.yml enforces Signed-off-by.",
-
   "code_of_conduct_status": "Met",
   "code_of_conduct_justification": "https://github.com/rabitem/outcome-metrics/blob/main/CODE_OF_CONDUCT.md",
-
   "static_analysis_status": "Met",
-  "static_analysis_justification": "CodeQL via .github/workflows/codeql.yml on push/PR/schedule.",
-
+  "static_analysis_justification": "https://github.com/rabitem/outcome-metrics/blob/main/.github/workflows/codeql.yml",
   "static_analysis_common_vulnerabilities_status": "Met",
   "static_analysis_common_vulnerabilities_justification": "CodeQL default security queries for Java.",
-
   "static_analysis_often_status": "Met",
   "static_analysis_often_justification": "CodeQL runs on every PR to main and weekly.",
-
   "dynamic_analysis_status": "Met",
   "dynamic_analysis_justification": "Jazzer harness in fuzz/ plus .clusterfuzzlite/ JVM builder.",
-
   "no_leaked_credentials_status": "Met",
   "no_leaked_credentials_justification": "No credentials in repo; CI uses GitHub Actions secrets; GitGuardian checks on PRs.",
-
   "delivery_mitm_status": "Met",
   "delivery_mitm_justification": "Distributed via HTTPS Maven Central / GitHub.",
-
   "crypto_published_status": "N/A",
   "crypto_published_justification": "Library does not implement cryptographic protocols.",
-
   "crypto_call_status": "N/A",
   "crypto_call_justification": "No application crypto; not in scope for this metrics library.",
-
   "crypto_floss_status": "N/A",
   "crypto_floss_justification": "No project-owned crypto libraries.",
-
   "crypto_keylength_status": "N/A",
   "crypto_keylength_justification": "No project-managed crypto keys.",
-
   "crypto_working_status": "N/A",
   "crypto_working_justification": "No project crypto modes.",
-
   "crypto_pfs_status": "N/A",
   "crypto_pfs_justification": "No project network protocol crypto.",
-
   "crypto_password_storage_status": "N/A",
   "crypto_password_storage_justification": "Project does not store passwords.",
-
   "crypto_random_status": "N/A",
   "crypto_random_justification": "Project does not generate security-sensitive random values.",
-
   "crypto_used_network_status": "N/A",
   "crypto_used_network_justification": "Library itself does not open network connections for its core API.",
-
   "hardened_site_status": "N/A",
   "hardened_site_justification": "No separate project-operated website beyond GitHub.",
-
   "OSPS-AC-01.01_status": "Met",
   "OSPS-AC-01.01_justification": "GitHub organization/user enforces 2FA for account access; collaborators use MFA-capable GitHub auth (passkeys/TOTP).",
-
   "OSPS-AC-02.01_status": "Met",
   "OSPS-AC-02.01_justification": "GitHub default collaborator permissions are least privilege; additional rights granted manually.",
-
   "OSPS-AC-03.01_status": "Met",
   "OSPS-AC-03.01_justification": "Repository ruleset Protect main requires PRs; direct commits to default branch blocked. See .github/RULESETS.md.",
-
   "OSPS-AC-03.02_status": "Met",
   "OSPS-AC-03.02_justification": "Ruleset blocks deletion of the default branch.",
-
   "OSPS-BR-03.01_status": "Met",
   "OSPS-BR-03.01_justification": "Official project URIs (GitHub, docs) are HTTPS-only.",
-
   "OSPS-BR-03.02_status": "Met",
   "OSPS-BR-03.02_justification": "Distribution via Maven Central and GitHub Releases over HTTPS; artifacts cosign-signed on release.",
-
   "OSPS-DO-01.01_status": "Met",
   "OSPS-DO-01.01_justification": "README.md and docs/handbook/ document how to use the software.",
-
   "OSPS-DO-02.01_status": "Met",
   "OSPS-DO-02.01_justification": "SECURITY.md documents the vulnerability reporting process.",
-
   "OSPS-GV-02.01_status": "Met",
   "OSPS-GV-02.01_justification": "CODE_OF_CONDUCT.md (Contributor Covenant).",
-
   "OSPS-GV-03.01_status": "Met",
   "OSPS-GV-03.01_justification": "CONTRIBUTING.md and DCO workflow define contribution requirements.",
-
   "OSPS-LE-02.01_status": "Met",
   "OSPS-LE-02.01_justification": "LICENSE is MIT at repository root.",
-
   "OSPS-LE-02.02_status": "Met",
   "OSPS-LE-02.02_justification": "MIT is an OSI-approved license.",
-
   "OSPS-LE-03.01_status": "Met",
   "OSPS-LE-03.01_justification": "License clearly stated in LICENSE and README.",
-
   "OSPS-QA-01.01_status": "Met",
   "OSPS-QA-01.01_justification": "Public Git repository on GitHub with full history.",
-
   "OSPS-QA-01.02_status": "Met",
   "OSPS-QA-01.02_justification": "Changes proposed via pull requests.",
-
   "OSPS-QA-02.01_status": "Met",
   "OSPS-QA-02.01_justification": "CI workflow runs ./mvnw verify on pull requests.",
-
   "OSPS-QA-04.01_status": "Met",
   "OSPS-QA-04.01_justification": "Dependabot configured in .github/dependabot.yml.",
-
   "OSPS-QA-05.01_status": "Met",
   "OSPS-QA-05.01_justification": "JUnit tests exercise core library behavior.",
-
   "OSPS-QA-05.02_status": "Met",
   "OSPS-QA-05.02_justification": "CI required status checks must pass before merge.",
-
   "OSPS-VM-02.01_status": "Met",
   "OSPS-VM-02.01_justification": "SECURITY.md + GitHub private vulnerability reporting.",
-
   "OSPS-SA-01.01_status": "Met",
   "OSPS-SA-01.01_justification": "CodeQL static analysis on PRs and schedule.",
-
   "OSPS-SA-02.01_status": "Met",
   "OSPS-SA-02.01_justification": "OpenSSF Scorecard workflow publishes supply-chain results.",
-
   "OSPS-SA-03.01_status": "Met",
-  "OSPS-SA-03.01_justification": "Jazzer fuzz harness and ClusterFuzzLite layout under fuzz/ and .clusterfuzzlite/."
+  "OSPS-SA-03.01_justification": "Jazzer fuzz harness and ClusterFuzzLite layout under fuzz/ and .clusterfuzzlite/.",
+  "release_notes_vulns_status": "N/A",
+  "release_notes_vulns_justification": "No public vulnerability fixes yet; CHANGELOG will note security fixes when they occur.",
+  "report_archive_status": "Met",
+  "report_archive_justification": "https://github.com/rabitem/outcome-metrics/issues",
+  "report_responses_status": "Met",
+  "report_responses_justification": "Issues and PRs are triaged by the maintainer.",
+  "vulnerability_report_response_status": "Met",
+  "vulnerability_report_response_justification": "SECURITY.md commits to acknowledgement within a few days.",
+  "maintained_status": "Met",
+  "maintained_justification": "Actively developed; recent commits and open issue tracker.",
+  "test_policy_status": "Met",
+  "test_policy_justification": "CONTRIBUTING.md and PR template require tests; CI runs ./mvnw verify.",
+  "warnings_status": "Met",
+  "warnings_justification": "Maven compiler + enforcer; CI fails on errors.",
+  "warnings_fixed_status": "Met",
+  "warnings_fixed_justification": "CI verify fails on compilation problems; fixed before merge.",
+  "warnings_strict_status": "N/A",
+  "warnings_strict_justification": "Java/Maven; -Wall N/A. Equivalent: compiler release + enforcer.",
+  "know_secure_design_status": "Met",
+  "know_secure_design_justification": "Least-privilege CI, no secrets in repo, Dependabot, tag sanitization.",
+  "know_common_errors_status": "Met",
+  "know_common_errors_justification": "OWASP/CWE awareness; CodeQL + Dependabot + bounded tags.",
+  "delivery_unsigned_status": "Met",
+  "delivery_unsigned_justification": "HTTPS delivery; cosign .sigstore.json on GitHub Releases.",
+  "vulnerabilities_fixed_60_days_status": "Met",
+  "vulnerabilities_fixed_60_days_justification": "No publicly known unfixed vulnerabilities.",
+  "vulnerabilities_critical_fixed_status": "Met",
+  "vulnerabilities_critical_fixed_justification": "No critical public vulnerabilities to date.",
+  "static_analysis_fixed_status": "Met",
+  "static_analysis_fixed_justification": "CodeQL findings addressed; ruleset blocks on errors.",
+  "dynamic_analysis_fixed_status": "Met",
+  "dynamic_analysis_fixed_justification": "Jazzer/ClusterFuzzLite; crashes fixed before release.",
+  "dynamic_analysis_unsafe_status": "N/A",
+  "dynamic_analysis_unsafe_justification": "Pure Java; no native unsafe memory. Jazzer for JVM fuzzing.",
+  "dynamic_analysis_enable_assertions_status": "Met",
+  "dynamic_analysis_enable_assertions_justification": "JUnit/AssertJ assertions in tests during ./mvnw verify.",
+  "enhancement_responses_status": "Met",
+  "enhancement_responses_justification": "Enhancement requests via GitHub Issues/PRs reviewed by maintainer.",
+  "crypto_weaknesses_status": "N/A",
+  "crypto_weaknesses_justification": "No project crypto algorithms.",
+  "tests_documented_added_status": "Met",
+  "tests_documented_added_justification": "CONTRIBUTING.md requires tests with new behavior."
 }
