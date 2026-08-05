@@ -26,3 +26,15 @@ If private reporting is unavailable, email **huisingafelix@gmail.com** with:
 - impact assessment if known
 
 You should receive an acknowledgement within a few days. Please allow time for a fix before public disclosure.
+
+## OpenSSF Scorecard: Maintained
+
+The Scorecard [Maintained](https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained)
+check scores repositories younger than 90 days as `0` by design — there is not
+yet enough history to judge ongoing maintenance. This repository was created on
+2026-08-05, so that score will remain low until early November 2026 even with
+active commits and issue triage.
+
+No remediation in source is possible for that window. After day 90, Scorecard
+expects roughly weekly commit activity (or maintainer engagement on issues) for
+a high Maintained score.
