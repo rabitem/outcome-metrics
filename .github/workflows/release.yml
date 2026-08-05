@@ -81,10 +81,18 @@ jobs:
           body = match.group(0).strip() if match else f"Release {tag}"
           Path("release-notes.md").write_text(body + "\n")
           PY
-      - name: GitHub Release
+      - name: GitHub Release (draft for immutable releases)
+        id: gh_release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
+          draft: true
           body_path: release-notes.md
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') }}
           files: |
             dist/*
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "$GITHUB_REF_NAME" --draft=false \
+            --repo "$GITHUB_REPOSITORY"
