@@ -45,6 +45,8 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+Virtual threads: `OutcomeScope` is confined per virtual thread (JEP 444) — no carrier bleed, no
+ScopedValue needed; pinning = execution cost, observe via `micrometer-java21` VirtualThreadMetrics.
 Async terminals: `observations.startDeferred(name, dims)` → `succeed()|fail(t)|cancel()` (first
 terminal wins); `outcome-metrics-reactor`: `ReactorOutcomes.record(observations, name, dims,
 monoOrFlux)` — one observation per subscription; `@MeasuredOutcome` auto-binds Mono/Flux in Spring

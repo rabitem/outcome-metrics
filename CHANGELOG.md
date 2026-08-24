@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Virtual-thread guidance and isolation proof (#40): a 2,000-virtual-thread test proves
+  `OutcomeScope` is confined per virtual thread (JEP 444 — no carrier bleed), so no `ScopedValue`
+  migration is needed (preview on the JDK 21 baseline); pinning is documented as execution cost
+  observed via `micrometer-java21` `VirtualThreadMetrics` joined on dashboards, deliberately not
+  per-observation attribution. Docs-and-proof change; no new API.
+
 - Terminal-signal outcome binding (#39): core `DeferredOutcome` primitive
   (`startDeferred` → `succeed`/`fail`/`cancel`, first terminal wins) plus the new
   `outcome-metrics-reactor` module (`ReactorOutcomes.record` for Mono/Flux, one observation per

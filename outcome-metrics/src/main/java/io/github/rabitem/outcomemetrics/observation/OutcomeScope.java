@@ -32,6 +32,12 @@ import java.util.Set;
  * unseen series are reported as {@code first} rather than risking unbounded memory or hidden
  * signal.
  *
+ * <p><b>Virtual threads are the good case</b>: per JEP 444, thread-locals are confined to their
+ * virtual thread, so a scope opened on a virtual thread never bleeds to others sharing a carrier —
+ * scope-per-request on a virtual-thread-per-request stack is exactly the intended model. Executor
+ * handoffs (any thread change) fail open to {@code occurrence=first}. For carrier-pinning
+ * observability, pair with {@code micrometer-java21}'s {@code VirtualThreadMetrics}.
+ *
  * @since 0.1.0
  */
 public final class OutcomeScope implements AutoCloseable {
