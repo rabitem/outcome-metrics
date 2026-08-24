@@ -70,6 +70,8 @@ routes:
 | `closure=expired` gap timers rise | Dual-control approvals dying unwitnessed — process, not outage |
 | `reason=veto_after_approval` | The four-eyes control caught something after first approval — review it |
 | `resolution=returned`/`adjusted` windows rise | Rail disagreeing with local ledger (returns, adjudication drift) |
+| `break_glass=activation` rate > 0 | Every emergency override is an alertable event — notify on the tag rate |
+| `verdict=unjustified` reviews | Break-glass misuse found by review — follow up outside metrics |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches
