@@ -71,3 +71,11 @@ Scrape: `/q/metrics`.
 | Want custom helper | Replace `@DefaultBean` `OutcomeObservations` |
 
 Preview: APIs work, but expect sharper edges than the Spring starter. Prefer `OutcomeObservations` if you want zero interceptor magic.
+
+## Enforcement from configuration
+
+Mirrors the Spring starter (#57): `outcome.metrics.reason-budget.*` (`enabled`,
+`collapsed-limit`, `expanded-limit` — the `ReasonBudget` bean stays injectable for runtime
+toggles), `outcome.metrics.reason-registry.codes`, `outcome.metrics.combination-guard.*`
+(`keys`, `min-support`, `window`, `name-prefixes`), and `outcome.metrics.privacy.*`
+(`enabled`, `saas-defaults`, `deny-keys`). Binders register their gauges automatically.

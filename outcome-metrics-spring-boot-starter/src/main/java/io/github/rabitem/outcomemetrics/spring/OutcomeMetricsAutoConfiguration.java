@@ -2,7 +2,12 @@ package io.github.rabitem.outcomemetrics.spring;
 
 import io.github.rabitem.outcomemetrics.MetricsMeterFilters;
 import io.github.rabitem.outcomemetrics.OverflowAwareMeterFilter;
+import io.github.rabitem.outcomemetrics.observation.CombinationGuard;
+import io.github.rabitem.outcomemetrics.observation.OutcomeObservationConvention;
 import io.github.rabitem.outcomemetrics.observation.OutcomeObservations;
+import io.github.rabitem.outcomemetrics.observation.ReasonBudget;
+import io.github.rabitem.outcomemetrics.observation.ReasonRegistry;
+import io.github.rabitem.outcomemetrics.observation.TagPrivacyPolicy;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import io.micrometer.core.instrument.config.MeterFilter;
@@ -16,6 +21,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.micrometer.observation.autoconfigure.ObservationAutoConfiguration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 
@@ -39,8 +45,124 @@ public class OutcomeMetricsAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    OutcomeObservations outcomeObservations(final ObservationRegistry observationRegistry) {
-        return new OutcomeObservations(observationRegistry);
+    OutcomeObservations outcomeObservations(
+            final ObservationRegistry observationRegistry,
+            final OutcomeObservationConvention outcomeObservationConvention) {
+        return new OutcomeObservations(observationRegistry, outcomeObservationConvention);
+    }
+
+    /**
+     * Composes the observation convention from whichever enforcement beans exist (#57).
+     *
+     * @param reasonBudget     optional reason budget
+     * @param reasonRegistry   optional reason registry
+     * @param combinationGuard optional combination guard
+     * @param tagPrivacyPolicy optional privacy policy
+     * @return the composed convention, or the shared unenforced instance
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    OutcomeObservationConvention outcomeObservationConvention(
+            final ObjectProvider<ReasonBudget> reasonBudget,
+            final ObjectProvider<ReasonRegistry> reasonRegistry,
+            final ObjectProvider<CombinationGuard> combinationGuard,
+            final ObjectProvider<TagPrivacyPolicy> tagPrivacyPolicy) {
+        final ReasonBudget budget = reasonBudget.getIfAvailable();
+        final ReasonRegistry registry = reasonRegistry.getIfAvailable();
+        final CombinationGuard guard = combinationGuard.getIfAvailable();
+        final TagPrivacyPolicy policy = tagPrivacyPolicy.getIfAvailable();
+        if (budget == null && registry == null && guard == null && policy == null) {
+            return OutcomeObservationConvention.INSTANCE;
+        }
+        final OutcomeObservationConvention.Builder builder = OutcomeObservationConvention.builder();
+        if (budget != null) {
+            builder.reasonBudget(budget);
+        }
+        if (registry != null) {
+            builder.reasonRegistry(registry);
+        }
+        if (guard != null) {
+            builder.combinationGuard(guard);
+        }
+        if (policy != null) {
+            builder.tagPrivacyPolicy(policy);
+        }
+        return builder.build();
+    }
+
+    /**
+     * Reason cardinality budget from configuration (#19); stays injectable so operators can wire
+     * their own runtime expand/collapse toggle. Auto-bound to the meter registry as a
+     * {@code MeterBinder}.
+     *
+     * @param properties bound metrics properties
+     * @return the reason budget
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "outcome.metrics.reason-budget", name = "enabled", havingValue = "true")
+    ReasonBudget outcomeReasonBudget(final OutcomeMetricsProperties properties) {
+        return new ReasonBudget(
+                properties.getReasonBudget().getCollapsedLimit(),
+                properties.getReasonBudget().getExpandedLimit());
+    }
+
+    /**
+     * Reason vocabulary registry from configured literal codes (#24). Enum vocabularies are wired
+     * as a {@code ReasonRegistry} bean instead.
+     *
+     * @param properties bound metrics properties
+     * @return the reason registry
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "outcome.metrics.reason-registry", name = "codes[0]")
+    ReasonRegistry outcomeReasonRegistry(final OutcomeMetricsProperties properties) {
+        return ReasonRegistry.builder()
+                .codes(properties.getReasonRegistry().getCodes().toArray(String[]::new))
+                .build();
+    }
+
+    /**
+     * Combination cardinality guard from configuration (#26).
+     *
+     * @param properties bound metrics properties
+     * @return the combination guard
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "outcome.metrics.combination-guard", name = "keys[0]")
+    CombinationGuard outcomeCombinationGuard(final OutcomeMetricsProperties properties) {
+        final OutcomeMetricsProperties.CombinationGuardProperties config = properties.getCombinationGuard();
+        final CombinationGuard.Builder builder = CombinationGuard.builder()
+                .keys(config.getKeys().toArray(String[]::new))
+                .minSupport(config.getMinSupport())
+                .window(config.getWindow());
+        if (!config.getNamePrefixes().isEmpty()) {
+            builder.namePrefixes(config.getNamePrefixes().toArray(String[]::new));
+        }
+        return builder.build();
+    }
+
+    /**
+     * Tag PII sentinel from configuration (#29).
+     *
+     * @param properties bound metrics properties
+     * @return the privacy policy
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "outcome.metrics.privacy", name = "enabled", havingValue = "true")
+    TagPrivacyPolicy outcomeTagPrivacyPolicy(final OutcomeMetricsProperties properties) {
+        final OutcomeMetricsProperties.PrivacyProperties config = properties.getPrivacy();
+        final TagPrivacyPolicy.Builder builder = TagPrivacyPolicy.builder();
+        if (config.isSaasDefaults()) {
+            builder.denyKeys(TagPrivacyPolicy.saasDefaults().denyKeys().toArray(String[]::new));
+        }
+        if (!config.getDenyKeys().isEmpty()) {
+            builder.denyKeys(config.getDenyKeys().toArray(String[]::new));
+        }
+        return builder.build();
     }
 
     /**

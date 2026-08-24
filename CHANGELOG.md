@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Enforcement from configuration in both frameworks (#57): `outcome.metrics.reason-budget.*`,
+  `reason-registry.codes`, `combination-guard.*`, and `privacy.*` compose the convention pipeline
+  in the Spring starter and the Quarkus extension without code. User-defined beans take precedence;
+  the `ReasonBudget` bean stays injectable for runtime expand/collapse wiring; all enforcement
+  objects auto-bind their gauges/counters as `MeterBinder`s.
+
 - Per-request outcome scope filter for Spring Boot (#54): opt-in `outcome.metrics.scope.enabled`
   registers a servlet filter opening an `OutcomeScope` per request. Off by default (enabling
   changes the `occurrence` split); servlet dispatch only — WebFlux and reactive Quarkus hop

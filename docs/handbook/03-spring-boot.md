@@ -111,3 +111,28 @@ outcome:
 Servlet (blocking) dispatch only. Async servlet completions after the chain returns, WebFlux, and
 reactive stacks hop threads — a ThreadLocal scope there would corrupt rather than help, so those
 paths fail open to `occurrence=first` by design.
+
+## Enforcement from configuration
+
+Compose the convention pipeline (#19/#24/#26/#29) without code — any bean you define yourself
+takes precedence:
+
+```yaml
+outcome:
+  metrics:
+    reason-budget:
+      enabled: true
+      collapsed-limit: 8
+      expanded-limit: 64      # the ReasonBudget bean stays injectable for your expand/collapse toggle
+    reason-registry:
+      codes: [db_down, payment_declined]   # literal codes; enum vocabularies -> define a ReasonRegistry bean
+    combination-guard:
+      keys: [region, product]
+      min-support: 20
+      window: 15m
+    privacy:
+      enabled: true            # saas defaults + your extras
+      deny-keys: [custom_secret]
+```
+
+All four are `MeterBinder`s, so their gauges/counters bind automatically.

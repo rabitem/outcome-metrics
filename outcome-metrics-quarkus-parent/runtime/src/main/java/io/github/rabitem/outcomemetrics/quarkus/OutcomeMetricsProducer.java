@@ -3,7 +3,12 @@ package io.github.rabitem.outcomemetrics.quarkus;
 import io.github.rabitem.outcomemetrics.MeterTagLimit;
 import io.github.rabitem.outcomemetrics.MetricsMeterFilters;
 import io.github.rabitem.outcomemetrics.OverflowAwareMeterFilter;
+import io.github.rabitem.outcomemetrics.observation.CombinationGuard;
+import io.github.rabitem.outcomemetrics.observation.OutcomeObservationConvention;
 import io.github.rabitem.outcomemetrics.observation.OutcomeObservations;
+import io.github.rabitem.outcomemetrics.observation.ReasonBudget;
+import io.github.rabitem.outcomemetrics.observation.ReasonRegistry;
+import io.github.rabitem.outcomemetrics.observation.TagPrivacyPolicy;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.config.MeterFilter;
@@ -48,13 +53,96 @@ public class OutcomeMetricsProducer {
     @LookupIfProperty(name = "outcome.metrics.enabled", stringValue = "true", lookupIfMissing = true)
     public OutcomeObservations outcomeObservations(
             final Instance<ObservationRegistry> observationRegistries,
-            final MeterRegistry meterRegistry) {
+            final Instance<ReasonBudget> reasonBudgets,
+            final MeterRegistry meterRegistry,
+            final OutcomeMetricsConfig config) {
+        final ObservationRegistry registry;
         if (observationRegistries.isResolvable()) {
-            return new OutcomeObservations(observationRegistries.get());
+            registry = observationRegistries.get();
+        } else {
+            registry = ObservationRegistry.create();
+            registry.observationConfig().observationHandler(new DefaultMeterObservationHandler(meterRegistry));
         }
-        final ObservationRegistry registry = ObservationRegistry.create();
-        registry.observationConfig().observationHandler(new DefaultMeterObservationHandler(meterRegistry));
-        return new OutcomeObservations(registry);
+        return new OutcomeObservations(registry, convention(reasonBudgets, meterRegistry, config));
+    }
+
+    private static OutcomeObservationConvention convention(
+            final Instance<ReasonBudget> reasonBudgets,
+            final MeterRegistry meterRegistry,
+            final OutcomeMetricsConfig config) {
+        final ReasonBudget budget = reasonBudgets.isResolvable() ? reasonBudgets.get() : null;
+        final ReasonRegistry reasons = config.reasonRegistry().codes()
+                .filter(codes -> !codes.isEmpty())
+                .map(codes -> ReasonRegistry.builder().codes(codes.toArray(String[]::new)).build())
+                .orElse(null);
+        final CombinationGuard guard = config.combinationGuard().keys()
+                .filter(keys -> !keys.isEmpty())
+                .map(keys -> {
+                    final CombinationGuard.Builder guardBuilder = CombinationGuard.builder()
+                            .keys(keys.toArray(String[]::new))
+                            .minSupport(config.combinationGuard().minSupport())
+                            .window(config.combinationGuard().window());
+                    config.combinationGuard().namePrefixes()
+                            .filter(prefixes -> !prefixes.isEmpty())
+                            .ifPresent(prefixes -> guardBuilder.namePrefixes(prefixes.toArray(String[]::new)));
+                    return guardBuilder.build();
+                })
+                .orElse(null);
+        final TagPrivacyPolicy policy = privacyPolicy(config);
+        if (budget == null && reasons == null && guard == null && policy == null) {
+            return OutcomeObservationConvention.INSTANCE;
+        }
+        final OutcomeObservationConvention.Builder builder = OutcomeObservationConvention.builder();
+        if (budget != null) {
+            builder.reasonBudget(budget);
+        }
+        if (reasons != null) {
+            builder.reasonRegistry(reasons);
+            reasons.bindTo(meterRegistry);
+        }
+        if (guard != null) {
+            builder.combinationGuard(guard);
+            guard.bindTo(meterRegistry);
+        }
+        if (policy != null) {
+            builder.tagPrivacyPolicy(policy);
+            policy.bindTo(meterRegistry);
+        }
+        return builder.build();
+    }
+
+    private static TagPrivacyPolicy privacyPolicy(final OutcomeMetricsConfig config) {
+        if (!config.privacy().enabled()) {
+            return null;
+        }
+        final TagPrivacyPolicy.Builder builder = TagPrivacyPolicy.builder();
+        if (config.privacy().saasDefaults()) {
+            builder.denyKeys(TagPrivacyPolicy.saasDefaults().denyKeys().toArray(String[]::new));
+        }
+        config.privacy().denyKeys()
+                .filter(keys -> !keys.isEmpty())
+                .ifPresent(keys -> builder.denyKeys(keys.toArray(String[]::new)));
+        return builder.build();
+    }
+
+    /**
+     * Reason cardinality budget from configuration (#19); injectable so operators can wire their
+     * own runtime expand/collapse toggle. Bound to the meter registry here.
+     *
+     * @param config        outcome metrics config
+     * @param meterRegistry Micrometer registry
+     * @return the reason budget
+     */
+    @Produces
+    @Singleton
+    @DefaultBean
+    @LookupIfProperty(name = "outcome.metrics.reason-budget.enabled", stringValue = "true")
+    public ReasonBudget outcomeReasonBudget(final OutcomeMetricsConfig config, final MeterRegistry meterRegistry) {
+        final ReasonBudget budget = new ReasonBudget(
+                config.reasonBudget().collapsedLimit(),
+                config.reasonBudget().expandedLimit());
+        budget.bindTo(meterRegistry);
+        return budget;
     }
 
     /**
