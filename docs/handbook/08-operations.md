@@ -67,6 +67,8 @@ routes:
 | `lag_bucket=gte_10m` with `outcome=success` | Work succeeding but far too late (silent SLA burn) |
 | `tag_privacy.redacted` rises | Code is putting identity data into tags — fix the call site |
 | `experiment_registry.unregistered` rises | Flag SDK emitting ids/arms the registry doesn't declare |
+| `closure=expired` gap timers rise | Dual-control approvals dying unwitnessed — process, not outage |
+| `reason=veto_after_approval` | The four-eyes control caught something after first approval — review it |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches

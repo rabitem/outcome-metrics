@@ -109,6 +109,7 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | PII sentinel | Optional `TagPrivacyPolicy`: deny-listed keys + identity-shaped values redact to `redacted`; never throws |
 | Experiments | `ExperimentRegistry`: pre-registered ids + declared arms; raw flag keys collapse to `unregistered` |
 | Test contracts | `outcome-metrics-test`: label-set consistency, schema/cardinality/PII assertions, vocabulary contracts, optional ArchUnit rules |
+| Dual control | `witness` action vocabulary + `closure`-tagged gap timer fed from the workflow store; roles, never actor ids or hashes |
 | Alert routing | `alertability` tag (`page`/`ticket`/`none`) declared per reason; unclassified failures page |
 | Idempotency | `idempotency=applied`/`duplicate_skipped` on success, `none` on failure; conflicts/stale/missing-key are failure reasons |
 | Shared resources | `SharedResource` five-tag bundle (`owned`/`borrowed`/`pooled`); factories reject UUID-shaped values |

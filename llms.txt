@@ -45,6 +45,9 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+Dual control: tag events `DualControl.WitnessAction.FIRST_APPROVAL|SECOND_APPROVAL|VETO|EXPIRY
+.tag()`; `DualControl.recordGap(registry, name, dims, storeDuration, GapClosure.COMPLETED|VETOED|
+EXPIRED)`; reasons `veto_after_approval`/`witness_timeout` (ticket); roles only, never id hashes.
 Testing: `outcome-metrics-test` — `assertThatOutcomes(registry).hasConsistentLabelSets()
 .hasOutcomeSchema(name).hasSeriesCardinalityAtMost(name, n).hasNoPrivacyViolations(policy)`;
 `ReasonVocabularyContracts.assertWellFormed(EnumClass)`; optional `OutcomeArchRules`.
