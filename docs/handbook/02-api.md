@@ -322,6 +322,26 @@ reconcile pattern (`recordReconciliation`, #23). Never tag actor ids — and not
 a hashed id is still pseudonymous personal data and unbounded cardinality; emit closed roles (the
 PII sentinel's long-hex detector redacts identity hashes by design).
 
+## Rail divergence: measure the mismatch window, not the endpoint call
+
+Local ledger commit and rail confirmation diverge for hours; endpoint latency doesn't measure that.
+When your store closes a divergence window (webhook, adjudication feed), record its duration:
+
+```java
+// in the (idempotent! see recordIdempotent) webhook handler that closes the window
+RailDivergence.recordWindow(meterRegistry, "payment.rail_divergence",
+    KeyValues.of("local_state", "captured", "rail_state", "returned"),
+    store.divergenceWindow(paymentId),
+    RailDivergence.DivergenceResolution.RETURNED);
+```
+
+`resolution` is closed (`converged|returned|adjusted|written_off`); `local_state`/`rail_state`
+pairs are **your** bounded vocabularies (one library enum can't serve payment rails and insurer
+adjudication at once — pair with the `CombinationGuard` if the product needs it). Active divergence
+counts are gauges (`LatestValueGauges`); rail-specific failure reasons are your `OutcomeReason`
+vocabulary. Duplicate webhook deliveries must not double-record — that's exactly the
+`recordIdempotent` pairing.
+
 ## Record with an annotation
 
 ```java
