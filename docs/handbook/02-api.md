@@ -195,6 +195,25 @@ fails **closed**: over the tuple cap, combinations stay collapsed. Guarding `out
 within a window never reveal; the first `minSupport − 1` events stay in the collapsed series
 (counters are monotonic).
 
+## SLO bindings: code declares which SLO it instruments
+
+SLO policy (target, window) stays in your SLO toolchain; code asserts only the binding. Sites
+obtain their `slo` tag through a closed catalog — resolve bindings into constants so a typo fails
+at wiring time, not on the first request:
+
+```java
+SloCatalog slos = SloCatalog.of("checkout-success", "refund-latency");
+slos.bindTo(meterRegistry); // outcome.metrics.slo.info{slo="..."} = 1 per declared id
+
+private static final KeyValue CHECKOUT_SLO = slos.binding("checkout-success");
+
+observations.record("order.place", KeyValues.of(CHECKOUT_SLO).and(dims), work);
+```
+
+The info gauge proves at runtime which SLO ids this binary instruments; alert on rules referencing
+an id with no info series. `@MeasuredOutcome(tags = {"slo=..."})` also works but is not
+catalog-checked — the CI export (#64) is the check for those sites.
+
 ## Record with an annotation
 
 ```java

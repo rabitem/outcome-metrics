@@ -21,6 +21,12 @@ sum(rate(demo_invoice_render_seconds_count{outcome="success"}[5m]))
 
 outcome_metrics_tag_value_overflows
 
+# SLI per SLO id, deduplicated (see #18): group the bound series by slo
+sum by (slo) (rate(demo_order_place_seconds_count{outcome="success",occurrence="first",slo!=""}[5m]))
+
+# Drift detector: alert when an SLO id your rules reference has no runtime binding
+absent(outcome_metrics_slo_info{slo="checkout_success"})
+
 # Reason budget: 0 collapsed / 1 expanded, plus codes folded into reason="other"
 outcome_metrics_reason_budget_expanded
 outcome_metrics_reason_budget_suppressed
@@ -51,6 +57,7 @@ routes:
 | `reason_budget.suppressed` rises | Distinct failure codes exceed the budget — expand it or trim the vocabulary |
 | `reason_registry.rejected` rises | Code emitting reasons outside the registered vocabulary (or a rogue reason source) |
 | `combination_guard.collapsed` high & steady | Guard scope too broad or `minSupport` too high for real traffic |
+| `absent(outcome_metrics_slo_info{slo="X"})` | An alert/SLO references an id this binary no longer instruments |
 | `reason=idempotency_conflict` | Same key, different payload: upstream producer bug (pages by default) |
 | `idempotency=duplicate_skipped` ratio shifts | Redelivery storm or dedup-window change upstream |
 | `disposition=diverged` rises | Client-claimed successes not matching server state |
