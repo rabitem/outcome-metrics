@@ -50,6 +50,8 @@ failures emit `alertability=page|ticket|none`, successes `none`; route alerts on
 Idempotency: `recordIdempotent(name, tags, work, r -> IdempotencyOutcome.APPLIED|DUPLICATE_SKIPPED)`
 tags successes; failures keep `idempotency=none`; throw `IdempotencyException(IdempotencyReason.*)`
 for conflict/stale/missing-key (never put keys or message ids in tags).
+Shared resources: `SharedResource.owned|borrowed|pooled(type, tiers...).withPool(id).tags()` —
+five fixed tags (`resource`,`relationship`,`consumer_tier`,`owner_tier`,`pool`); UUIDs rejected.
 Overflow: remap to `other`; gauge `outcome.metrics.tag_value_overflows`.
 
 ## Samples
