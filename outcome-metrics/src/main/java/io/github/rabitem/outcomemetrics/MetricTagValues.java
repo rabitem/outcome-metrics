@@ -40,17 +40,32 @@ public final class MetricTagValues {
         if (error == null) {
             return NONE;
         }
+        final OutcomeReason reason = outcomeReason(error);
+        return reason == null ? UNKNOWN : sanitizeTagValue(reason.code());
+    }
+
+    /**
+     * Resolves the {@link OutcomeReason} explaining a throwable.
+     *
+     * <p>Walks the cause chain for the first {@link OutcomeReasonSource} whose reason carries a
+     * usable code; sources with a {@code null} reason or a blank code are skipped, matching
+     * {@link #reasonCode}.
+     *
+     * @param error throwable to classify; may be {@code null}
+     * @return the first usable reason, or {@code null} when the chain has none
+     */
+    public static OutcomeReason outcomeReason(final Throwable error) {
         Throwable current = error;
         while (current != null) {
             if (current instanceof OutcomeReasonSource source) {
                 final OutcomeReason reason = source.outcomeReason();
                 if (reason != null && reason.code() != null && !reason.code().isBlank()) {
-                    return sanitizeTagValue(reason.code());
+                    return reason;
                 }
             }
             current = current.getCause();
         }
-        return UNKNOWN;
+        return null;
     }
 
     /**
