@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Enforced reason vocabulary registry (#24): `ReasonRegistry` (explicit enum/literal registration,
+  schema floor implicit) wired via `OutcomeObservationConvention.builder()`. Unregistered reasons
+  are distrusted entirely — `reason=unknown` and forced `alertability=page` resolved in one step —
+  with rejections counted on `outcome.metrics.reason_registry.rejected`. Runtime enforcement never
+  throws; registry runs before the `ReasonBudget`. Attestation export: #64.
+
 - Intent–commit–reconcile vocabulary (#23): `OutcomePhase` (`phase=intent|commit|reconcile`) and
   `recordReconciliation(...)` classifying findings as `disposition=confirmed|diverged|abandoned|
   deferred` (failures keep `disposition=none`; `phase=reconcile` added automatically). Abandonment

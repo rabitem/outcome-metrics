@@ -210,6 +210,33 @@ Every failure **pages by default** (`alertability=page`); downgrade expected fai
 implementations page — nothing is silenced by omission. The level derives from the reason object,
 so a `ReasonBudget`-suppressed `reason=other` still carries its declared alertability.
 
+## Enforced reason vocabulary
+
+`OutcomeReasonSource` is convention-only; a `ReasonRegistry` makes membership enforced. Unregistered
+reasons are distrusted entirely — their observations emit `reason=unknown` **and**
+`alertability=page` (a rogue reason must not silence its own page), counted on
+`outcome.metrics.reason_registry.rejected`:
+
+```java
+ReasonRegistry vocabulary = ReasonRegistry.builder()
+    .vocabulary(PaymentReasons.class)   // enum implementing OutcomeReason
+    .codes("cache_stale")               // literal additions
+    .build();
+vocabulary.bindTo(meterRegistry);
+
+OutcomeObservations observations = new OutcomeObservations(
+    observationRegistry,
+    OutcomeObservationConvention.builder()
+        .reasonRegistry(vocabulary)
+        .reasonBudget(new ReasonBudget(8, 64)) // optional; registry runs first
+        .build());
+```
+
+Runtime enforcement never throws — telemetry must not turn one incident into two; blank codes fail
+fast at registration. `codes()` exposes the sanitized vocabulary for tests and CI attestation
+(export tooling: #64). Order with a budget: unregistered → `unknown`/page (no budget consumed);
+registered but over budget → `other` with declared alertability preserved.
+
 ## What this library does not do
 
 - Replace HTTP/DB auto-instrumentation

@@ -101,6 +101,7 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | Quiet failures | Parallel `integrity` tag (`ok`/`degraded`/`empty`); `outcome` stays binary for SLOs |
 | Repeat storms | `occurrence` tag (`first`/`repeat`) per `OutcomeScope`; repeats stay recorded, SLIs filter `first` |
 | Reason cardinality | Optional `ReasonBudget`: bounded codes per name, operator-expandable at runtime, never evicts |
+| Reason membership | Optional `ReasonRegistry`: unregistered reasons emit `unknown` + forced `page`; never throws at runtime |
 | Alert routing | `alertability` tag (`page`/`ticket`/`none`) declared per reason; unclassified failures page |
 | Idempotency | `idempotency=applied`/`duplicate_skipped` on success, `none` on failure; conflicts/stale/missing-key are failure reasons |
 | Shared resources | `SharedResource` five-tag bundle (`owned`/`borrowed`/`pooled`); factories reject UUID-shaped values |
