@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Request-scoped outcome coalescing for SLI accuracy (#18): new try-with-resources `OutcomeScope`
+  and an always-emitted `occurrence` tag (`first`/`repeat`). Repeats within a scope stay fully
+  recorded (timers, spans); SLI queries filter `occurrence="first"`. Fails open without a scope.
+
 - Integrity classification for quiet failures (#17): every observation now carries an `integrity` tag
   (`ok`/`degraded`/`empty` on success, `none` on failure). New `OutcomeIntegrity` vocabulary,
   `IntegrityClassifier`, and `OutcomeObservations.recordClassified(...)`; handbook covers the

@@ -99,6 +99,7 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | Tag-value overflow | Remap to `other` (meters stay visible) |
 | Classified successes | Still emit `outcome`/`reason`, plus sanitized result tags |
 | Quiet failures | Parallel `integrity` tag (`ok`/`degraded`/`empty`); `outcome` stays binary for SLOs |
+| Repeat storms | `occurrence` tag (`first`/`repeat`) per `OutcomeScope`; repeats stay recorded, SLIs filter `first` |
 | Config prefix | `outcome.metrics.*` frozen until 1.0 |
 | Quarkus extension status | `preview` until broader production dogfooding |
 

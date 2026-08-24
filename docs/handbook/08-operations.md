@@ -5,9 +5,11 @@
 Metric names follow Micrometer naming (`_seconds_count` for timers):
 
 ```promql
-sum(rate(demo_order_place_seconds_count{outcome="success"}[5m]))
+# SLI: filter occurrence="first" so one incident inside a request counts once,
+# even when it emitted many identical observations. Drop the filter for raw volume.
+sum(rate(demo_order_place_seconds_count{outcome="success",occurrence="first"}[5m]))
 /
-sum(rate(demo_order_place_seconds_count[5m]))
+sum(rate(demo_order_place_seconds_count{occurrence="first"}[5m]))
 
 sum by (reason) (rate(demo_order_place_seconds_count{outcome="failure"}[5m]))
 
@@ -27,6 +29,7 @@ outcome_metrics_tag_value_overflows
 | Success ratio drops for a command | Business regression |
 | `reason=unknown` rises | Missing `OutcomeReasonSource` |
 | Integrity rate < success rate | Quiet failures: degraded/empty results behind HTTP 200 |
+| `occurrence=repeat` rises | Repeat storms inside single requests (retry loops, fan-out amplification) |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches
