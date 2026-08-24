@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Operator-expandable reason cardinality budget (#19): optional `ReasonBudget` admits the first N
+  distinct failure reason codes per observation name (rest emit as `other` with a suppression
+  counter); `expand()` restores full detail at runtime — including previously suppressed codes —
+  and `collapse()` never evicts admitted codes. Ships a 0/1 mode gauge; no in-process burn-rate
+  automation by design.
+
 - Request-scoped outcome coalescing for SLI accuracy (#18): new try-with-resources `OutcomeScope`
   and an always-emitted `occurrence` tag (`first`/`repeat`). Repeats within a scope stay fully
   recorded (timers, spans); SLI queries filter `occurrence="first"`. Fails open without a scope.
