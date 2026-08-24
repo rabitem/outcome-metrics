@@ -73,6 +73,26 @@ symmetrically to successes and failures, and fails open: no scope, another threa
 1024 distinct series per scope → `first`. Scopes are thread-confined (Reactor/coroutines: #39) and
 nest as a stack. Framework modules auto-opening scopes per HTTP request: #54.
 
+## Reason budget: bounded codes, expandable during incidents
+
+Bound how many distinct failure `reason` codes each observation name may emit; the rest show as
+`other` and count on a suppression counter. During an incident, expand at runtime — effective on the
+next event, **including codes that were suppressed before**:
+
+```java
+ReasonBudget budget = new ReasonBudget(8, 64); // collapsed, expanded
+budget.bindTo(meterRegistry); // 0/1 mode gauge + suppression counter
+OutcomeObservations observations = new OutcomeObservations(observationRegistry, budget);
+
+budget.expand();   // incident: full detail from the next event on
+budget.collapse(); // afterwards: new codes bounded again; admitted codes keep reporting
+```
+
+Expansion/collapse is deliberately manual — wire it to your runbook or an alert webhook, not to an
+in-process burn-rate copy. `none`/`unknown`/`other` never consume budget. If you also configure a
+bounded tag-value filter on `reason`, keep its bound at or above the expanded limit; filter remaps
+are pinned by Micrometer's pre-filter id cache and cannot be undone by expanding.
+
 ## Record with an annotation
 
 ```java
