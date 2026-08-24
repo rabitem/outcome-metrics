@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Break-glass lifecycle observations (#34): `BreakGlass` — closed
+  `break_glass=activation|access|review|closure` stage vocabulary (alert on the activation rate:
+  an override is a success that must alert), `recordReviewLag(...)` with
+  `verdict=justified|unjustified|inconclusive`, and the ticket-routed `review_overdue` reason.
+  No lifecycle state; no patient/user identifiers; operational metrics are explicitly not a legal
+  audit trail.
+
 - Rail divergence windows (#33): `RailDivergence.recordWindow(...)` records store-computed
   divergence durations with `resolution=converged|returned|adjusted|written_off` (never-throw,
   clock-skew clamp; shared supplied-duration mechanics with #32). No handle state in the library;

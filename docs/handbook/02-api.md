@@ -342,6 +342,29 @@ counts are gauges (`LatestValueGauges`); rail-specific failure reasons are your 
 vocabulary. Duplicate webhook deliveries must not double-record — that's exactly the
 `recordIdempotent` pairing.
 
+## Break-glass: an alertable success, not an auth failure
+
+Emergency overrides are neither auth success nor RBAC denial. Tag lifecycle events with the closed
+stage vocabulary; **alert on the activation rate itself** — that's the signal 401/403 metrics
+can't carry:
+
+```java
+observations.record("clinical.override",
+    KeyValues.of(BreakGlass.Stage.ACTIVATION.tag()).and("resource_class", "patient_record"),
+    () -> openOverride(request));
+
+// review closes days later; record the store-computed lag with the verdict
+BreakGlass.recordReviewLag(meterRegistry, "clinical.override.review_lag",
+    KeyValues.of("cause", "clinical_emergency"),
+    store.reviewLag(overrideId), BreakGlass.ReviewVerdict.JUSTIFIED);
+```
+
+Overdue reviews come from your sweeper (reconcile pattern, #23) with `review_overdue` (ticket).
+Active override counts are gauges. `cause` is your bounded vocabulary. Never tag patient or user
+identifiers — resource classes and verdicts only (the PII sentinel redacts identity-shaped values).
+**Operational metrics are not a legal audit trail**: the WORM audit is a different system, and
+dashboards must never be offered to an auditor as evidence.
+
 ## Record with an annotation
 
 ```java
