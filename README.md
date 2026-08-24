@@ -75,6 +75,8 @@ outcome:
       normalize-tags: true
     annotation:
       enabled: true
+    scope:
+      enabled: false   # opt-in per-request OutcomeScope filter (servlet only)
     tag-limits:
       - meter-name-prefix: websocket.
         tag-key: destination

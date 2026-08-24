@@ -29,6 +29,8 @@ public class OutcomeMetricsProperties {
     @Valid
     private final Cache cache = new Cache();
 
+    private final Scope scope = new Scope();
+
     @Valid
     private final Interception annotation = new Interception();
 
@@ -116,6 +118,45 @@ public class OutcomeMetricsProperties {
     /**
      * Cache metric normalization settings.
      */
+    /**
+     * Returns the request-scope settings.
+     *
+     * @return scope settings, never {@code null}
+     */
+    public Scope getScope() {
+        return scope;
+    }
+
+    /**
+     * Request-scoped outcome coalescing settings (issues #18/#54).
+     *
+     * @since 0.1.0
+     */
+    public static class Scope {
+
+        private boolean enabled;
+
+        /**
+         * Returns whether a per-request {@code OutcomeScope} servlet filter is registered.
+         *
+         * <p>Off by default: enabling changes the {@code occurrence} split on existing series.
+         *
+         * @return {@code true} when enabled
+         */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        /**
+         * Sets whether the per-request scope filter is registered.
+         *
+         * @param enabled {@code true} to enable
+         */
+        public void setEnabled(final boolean enabled) {
+            this.enabled = enabled;
+        }
+    }
+
     public static class Cache {
 
         private boolean normalizeTags = true;
