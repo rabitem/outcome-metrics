@@ -180,6 +180,11 @@ public Reservation reserve(String sku) { ... }
 - Spring: bean + proxy call (no self-invocation).
 - Quarkus: CDI bean; non-private method.
 
+Opt into compile-time validation of the annotation constants with `outcome-metrics-processor`
+(add it to `annotationProcessorPaths`): malformed tag pairs, blank keys/values, and unresolvable
+names fail the build instead of the first production request; non-canonical tokens warn. Dynamic
+dimensions belong in `OutcomeObservations.record(...)`, never in annotation constants.
+
 ## Failure reasons
 
 ```java

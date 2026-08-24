@@ -47,6 +47,7 @@
     <modules>
         <!-- BOM is intentionally not a reactor child: it is a thin standalone POM published beside the build. -->
         <module>outcome-metrics</module>
+        <module>outcome-metrics-processor</module>
         <module>outcome-metrics-spring-boot-starter</module>
         <module>outcome-metrics-quarkus-parent</module>
     </modules>
