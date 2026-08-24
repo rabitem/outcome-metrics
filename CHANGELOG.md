@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- SLO bindings (#27): `SloCatalog` issues `slo=<id>` tags through a closed catalog (undeclared ids
+  fail at wiring time) and registers `outcome.metrics.slo.info{slo}=1` per declared id so alerting
+  can detect rules referencing ids the binary no longer instruments. SLO policy (target/window)
+  deliberately stays in the SLO toolchain; declared ids feed the CI attestation export (#64).
+
 - Combination cardinality guard (#26): optional `CombinationGuard` collapses rare guarded-tag
   combinations to `other` until they show `minSupport` events within one tumbling window; reveal
   is one-way per process, over-cap tuples fail closed, guarding `outcome`/`alertability` is

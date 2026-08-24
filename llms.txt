@@ -45,6 +45,9 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+SLO binding: `SloCatalog.of("checkout-success").binding("checkout-success")` → `slo` KeyValue
+(undeclared ids throw at wiring); `bindTo` emits `outcome.metrics.slo.info{slo}=1` per id —
+alert on `absent(...)` for drift. Policy (target/window) stays in Sloth/OpenSLO.
 Combination guard: `OutcomeObservationConvention.builder().combinationGuard(CombinationGuard
 .builder().keys("region","product").minSupport(20).window(Duration.ofMinutes(15)).build())` —
 rare tuples emit `other` until k events in one window; reveal one-way; fails closed; not k-anonymity.
