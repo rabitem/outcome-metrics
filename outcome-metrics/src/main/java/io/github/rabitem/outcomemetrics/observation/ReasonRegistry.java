@@ -149,6 +149,7 @@ public final class ReasonRegistry implements MeterBinder {
             codes.add(MetricTagValues.NONE);
             codes.add(MetricTagValues.UNKNOWN);
             codes.add(MetricTagValues.OTHER);
+            codes.add(MetricTagValues.CANCELLED);
             return new ReasonRegistry(new TreeSet<>(codes));
         }
 

@@ -25,6 +25,13 @@ public final class MetricTagValues {
     /** Tag value used when a privacy policy redacts a value; distinct from {@link #OTHER} on purpose. */
     public static final String REDACTED = "redacted";
 
+    /**
+     * Reason code for cancelled asynchronous work. Part of the schema floor: registries admit it
+     * implicitly and budgets never charge for it — a client disconnect must not remap to
+     * {@code unknown} and page.
+     */
+    public static final String CANCELLED = "cancelled";
+
     private MetricTagValues() {
     }
 

@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Terminal-signal outcome binding (#39): core `DeferredOutcome` primitive
+  (`startDeferred` → `succeed`/`fail`/`cancel`, first terminal wins) plus the new
+  `outcome-metrics-reactor` module (`ReactorOutcomes.record` for Mono/Flux, one observation per
+  subscription) and Spring aspect auto-binding for reactive return types — `@MeasuredOutcome` on a
+  `Mono` no longer stamps success at assembly. Cancellation records
+  `reason=cancelled`/`alertability=none`, and `cancelled` joins the schema floor (registries admit
+  it, budgets never charge it). Mutiny: #81; Kotlin coroutines: #82.
+
 - Replay delta vocabulary (#38): `ReplayDelta` adopts the revised contract from the issue
   discussion — `context_drift` asserted before the verdict comparison voids it instead of blaming
   the system under test — with the precedence encoded in `classify(...)`. Replay runs record as

@@ -430,6 +430,27 @@ public final class OutcomeObservations {
     }
 
     /**
+     * Starts an observation for asynchronous work whose terminal signal fires later.
+     *
+     * <p>Use for publishers, futures, and coroutines where synchronous {@code record(...)} would
+     * time the assembly and stamp success before anything ran. All composed enforcement (reason
+     * budget/registry, combination guard, privacy policy) applies. The caller must settle the
+     * returned handle exactly once; racing terminals are safe (first wins). See
+     * {@link DeferredOutcome} for the contract, including cancellation semantics and the
+     * no-scope caveat.
+     *
+     * @param name       observation name; must not be blank
+     * @param dimensions low-cardinality dimension tags; must not be {@code null}
+     * @return a started deferred outcome, never {@code null}
+     */
+    public DeferredOutcome startDeferred(final String name, final KeyValues dimensions) {
+        final OutcomeObservationContext context = context(dimensions);
+        final Observation observation = observation(name, context);
+        observation.start();
+        return new DeferredOutcome(observation, context);
+    }
+
+    /**
      * Starts, scopes, and stops the observation, marking the context settled before error and stop.
      *
      * <p>Micrometer consults the convention at {@code start()} as well as {@code stop()}, with

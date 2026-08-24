@@ -20,6 +20,8 @@ import java.lang.reflect.Method;
 @Aspect
 public class MeasuredOutcomeAspect {
 
+    private static final boolean REACTOR_BINDING_AVAILABLE = reactorBindingPresent();
+
     private final OutcomeObservations outcomeObservations;
 
     /**
@@ -49,9 +51,48 @@ public class MeasuredOutcomeAspect {
                 targetClass,
                 MeasuredOutcome.class);
         final MeasuredOutcome methodAnnotation = AnnotatedElementUtils.findMergedAnnotation(method, MeasuredOutcome.class);
-        return outcomeObservations.recordChecked(
-                MeasuredOutcomeSupport.resolveName(typeAnnotation, methodAnnotation),
-                MeasuredOutcomeSupport.resolveTags(typeAnnotation, methodAnnotation),
-                (CheckedSupplier<Object>) joinPoint::proceed);
+        final String name = MeasuredOutcomeSupport.resolveName(typeAnnotation, methodAnnotation);
+        final var tags = MeasuredOutcomeSupport.resolveTags(typeAnnotation, methodAnnotation);
+        if (REACTOR_BINDING_AVAILABLE && ReactorBinding.isReactive(method.getReturnType())) {
+            // Terminal-signal binding: wrapping a publisher in observe() would time the assembly
+            // and stamp success before anything ran. Assembly runs unobserved; each subscription
+            // is observed and settles on onComplete/onError/cancel.
+            return ReactorBinding.bind(outcomeObservations, name, tags, joinPoint.proceed());
+        }
+        return outcomeObservations.recordChecked(name, tags, (CheckedSupplier<Object>) joinPoint::proceed);
+    }
+
+    private static boolean reactorBindingPresent() {
+        try {
+            Class.forName("io.github.rabitem.outcomemetrics.reactor.ReactorOutcomes", false,
+                    MeasuredOutcomeAspect.class.getClassLoader());
+            Class.forName("reactor.core.publisher.Flux", false,
+                    MeasuredOutcomeAspect.class.getClassLoader());
+            return true;
+        } catch (final ClassNotFoundException | LinkageError absent) {
+            return false;
+        }
+    }
+
+    /**
+     * Loaded only when the optional {@code outcome-metrics-reactor} module is on the classpath.
+     */
+    private static final class ReactorBinding {
+
+        private ReactorBinding() {
+        }
+
+        static boolean isReactive(final Class<?> returnType) {
+            return io.github.rabitem.outcomemetrics.reactor.ReactorOutcomes.isReactiveReturn(returnType);
+        }
+
+        static Object bind(
+                final OutcomeObservations observations,
+                final String name,
+                final io.micrometer.common.KeyValues tags,
+                final Object publisher) {
+            return io.github.rabitem.outcomemetrics.reactor.ReactorOutcomes.bind(
+                    observations, name, tags, publisher);
+        }
     }
 }

@@ -77,6 +77,7 @@ routes:
 | `grounding=no_corpus_needed` rises | Retrieval running for answers that don't need it — wasted spend |
 | `delta=verdict_flip` rises | Real non-determinism under pinned context — system-under-test regression |
 | `delta=context_drift` rises | The replay harness can't reproduce its own reads — fix capture, not the model |
+| `reason=cancelled` rate spikes | Client disconnect / timeout storm on reactive endpoints (expected per event, alarming in bulk) |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Retention classes: two TTLs, one instrumentation

@@ -45,6 +45,10 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+Async terminals: `observations.startDeferred(name, dims)` → `succeed()|fail(t)|cancel()` (first
+terminal wins); `outcome-metrics-reactor`: `ReactorOutcomes.record(observations, name, dims,
+monoOrFlux)` — one observation per subscription; `@MeasuredOutcome` auto-binds Mono/Flux in Spring
+when the module is present; cancel → `reason=cancelled` (schema floor), `alertability=none`.
 Replay deltas: `ReplayDelta.classify(contextDiffers, verdictFlipped, latencyShifted, costShifted)`
 → `stable|context_drift|verdict_flip|latency_class_shift|cost_class_shift` (context drift voids
 the comparison); record replay runs as observations with `.tag()`; fingerprints never become tags.

@@ -105,7 +105,8 @@ public final class ReasonBudget implements MeterBinder {
     String admit(final String observationName, final String reasonCode) {
         if (MetricTagValues.NONE.equals(reasonCode)
                 || MetricTagValues.UNKNOWN.equals(reasonCode)
-                || MetricTagValues.OTHER.equals(reasonCode)) {
+                || MetricTagValues.OTHER.equals(reasonCode)
+                || MetricTagValues.CANCELLED.equals(reasonCode)) {
             return reasonCode;
         }
         final Set<String> admitted = admittedByName.computeIfAbsent(
