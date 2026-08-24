@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Idempotency outcome classifier (#21): `recordIdempotent(...)` tags successes
+  `idempotency=applied|duplicate_skipped` and failures `idempotency=none` (consistent Prometheus
+  label sets); `IdempotencyReason` (`idempotency_conflict` pages, `stale_replay` /
+  `idempotency_key_missing` ticket) with `IdempotencyException` for the failure side. Keys and
+  message ids never become tags.
+
 - Alertability ladder on `OutcomeReason` (#20): reasons declare routing via
   `alertability()` (`PAGE` default, `TICKET`, `NONE`); every observation emits an `alertability`
   tag (`page`/`ticket`/`none`, success → `none`). Fail-loud: unclassified failures and broken

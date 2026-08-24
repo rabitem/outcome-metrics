@@ -94,6 +94,33 @@ in-process burn-rate copy. `none`/`unknown`/`other` never consume budget. If you
 bounded tag-value filter on `reason`, keep its bound at or above the expanded limit; filter remaps
 are pinned by Micrometer's pre-filter id cache and cannot be undone by expanding.
 
+## Idempotency: duplicates are not failures (and not lies)
+
+At-least-once delivery makes duplicates expected. Classify the disposition of the key check;
+successes carry `idempotency=applied|duplicate_skipped`, failures keep the tag key with
+`idempotency=none` (Prometheus needs consistent label sets per meter name):
+
+```java
+return observations.recordIdempotent(
+    "payment.capture",
+    KeyValues.of("channel", "webhook"),
+    () -> handler.process(delivery),
+    result -> result.wasNoOp() ? IdempotencyOutcome.DUPLICATE_SKIPPED : IdempotencyOutcome.APPLIED);
+```
+
+Key conflicts, stale replays, and missing keys are **failures**, not success shapes — throw
+`IdempotencyException` and the `reason`/`alertability` tags follow (`idempotency_conflict` pages;
+`stale_replay` and `idempotency_key_missing` ticket):
+
+```java
+if (!stored.payloadHash().equals(delivery.payloadHash())) {
+    throw new IdempotencyException(IdempotencyReason.CONFLICT);
+}
+```
+
+Idempotency keys, message ids, and dedup-store values must never become tags — only the closed
+disposition above is tag-safe.
+
 ## Record with an annotation
 
 ```java
