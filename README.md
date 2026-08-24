@@ -117,6 +117,7 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | RAG grounding | `recordGrounded`: `grounding=aligned/ignored_evidence/hallucinated_gap/no_corpus_needed`; async judges record their own observation |
 | Replay deltas | `ReplayDelta.classify`: `context_drift` voids the verdict comparison before `verdict_flip`/shifts; fingerprints never become tags |
 | Async terminals | `startDeferred` primitive + `outcome-metrics-reactor`; Spring aspect auto-binds Mono/Flux; `cancelled` is schema floor |
+| Virtual threads | `OutcomeScope` is VT-confined by JEP 444 (isolation-tested); pin observability via `micrometer-java21`, joined on dashboards |
 | Alert routing | `alertability` tag (`page`/`ticket`/`none`) declared per reason; unclassified failures page |
 | Idempotency | `idempotency=applied`/`duplicate_skipped` on success, `none` on failure; conflicts/stale/missing-key are failure reasons |
 | Shared resources | `SharedResource` five-tag bundle (`owned`/`borrowed`/`pooled`); factories reject UUID-shaped values |

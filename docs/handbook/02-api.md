@@ -464,6 +464,20 @@ micrometer-context-propagation's job, and `OutcomeScope` fails open to `occurren
 infinite Flux is a never-stopped observation — bind at request granularity. Mutiny: #81,
 coroutines: #82.
 
+## Virtual threads (Loom): already the good case
+
+Per JEP 444, thread-locals are confined to their virtual thread — `OutcomeScope` opened on a
+virtual thread **cannot** bleed to others sharing a carrier (proven by a 2,000-thread isolation
+test in the suite). Scope-per-request on virtual-thread-per-request is the intended model; no
+`ScopedValue` migration is needed (and `ScopedValue` is preview on this library's JDK 21 baseline).
+
+Carrier **pinning** is an execution cost, not a result defect — a pinned success succeeded slowly,
+and slowness is what the timer records. For pin observability, bind Micrometer's own
+`micrometer-java21` `VirtualThreadMetrics` (JFR `jdk.VirtualThreadPinned`) and join on the
+dashboard: pin-event rate against duration shifts of your outcome timers. Per-observation pin
+attribution (thread × time-window correlation) costs more than it tells and is deliberately not
+offered.
+
 ## Record with an annotation
 
 ```java
