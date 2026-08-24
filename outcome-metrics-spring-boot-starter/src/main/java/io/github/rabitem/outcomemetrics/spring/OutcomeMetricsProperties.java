@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -30,6 +31,14 @@ public class OutcomeMetricsProperties {
     private final Cache cache = new Cache();
 
     private final Scope scope = new Scope();
+
+    private final ReasonBudgetProperties reasonBudget = new ReasonBudgetProperties();
+
+    private final ReasonRegistryProperties reasonRegistry = new ReasonRegistryProperties();
+
+    private final CombinationGuardProperties combinationGuard = new CombinationGuardProperties();
+
+    private final PrivacyProperties privacy = new PrivacyProperties();
 
     @Valid
     private final Interception annotation = new Interception();
@@ -125,6 +134,201 @@ public class OutcomeMetricsProperties {
      */
     public Scope getScope() {
         return scope;
+    }
+
+    /**
+     * Returns the reason-budget settings.
+     *
+     * @return reason budget settings, never {@code null}
+     */
+    public ReasonBudgetProperties getReasonBudget() {
+        return reasonBudget;
+    }
+
+    /**
+     * Returns the reason-registry settings.
+     *
+     * @return reason registry settings, never {@code null}
+     */
+    public ReasonRegistryProperties getReasonRegistry() {
+        return reasonRegistry;
+    }
+
+    /**
+     * Returns the combination-guard settings.
+     *
+     * @return combination guard settings, never {@code null}
+     */
+    public CombinationGuardProperties getCombinationGuard() {
+        return combinationGuard;
+    }
+
+    /**
+     * Returns the tag-privacy settings.
+     *
+     * @return privacy settings, never {@code null}
+     */
+    public PrivacyProperties getPrivacy() {
+        return privacy;
+    }
+
+    /**
+     * Reason cardinality budget settings (#19); the built bean stays injectable for runtime
+     * expand/collapse wiring.
+     *
+     * @since 0.1.0
+     */
+    public static class ReasonBudgetProperties {
+
+        private boolean enabled;
+        private int collapsedLimit = 8;
+        private int expandedLimit = 64;
+
+        /** @return {@code true} when a reason budget is composed */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        /** @param enabled {@code true} to compose a reason budget */
+        public void setEnabled(final boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /** @return distinct codes admitted per name when collapsed */
+        public int getCollapsedLimit() {
+            return collapsedLimit;
+        }
+
+        /** @param collapsedLimit collapsed admission limit */
+        public void setCollapsedLimit(final int collapsedLimit) {
+            this.collapsedLimit = collapsedLimit;
+        }
+
+        /** @return distinct codes admitted per name when expanded */
+        public int getExpandedLimit() {
+            return expandedLimit;
+        }
+
+        /** @param expandedLimit expanded admission limit */
+        public void setExpandedLimit(final int expandedLimit) {
+            this.expandedLimit = expandedLimit;
+        }
+    }
+
+    /**
+     * Reason vocabulary registry settings (#24). Literal codes only; enum vocabularies are wired as
+     * a {@code ReasonRegistry} bean instead.
+     *
+     * @since 0.1.0
+     */
+    public static class ReasonRegistryProperties {
+
+        private List<String> codes = new ArrayList<>();
+
+        /** @return registered literal reason codes; empty disables the registry */
+        public List<String> getCodes() {
+            return codes;
+        }
+
+        /** @param codes registered literal reason codes */
+        public void setCodes(final List<String> codes) {
+            this.codes = codes;
+        }
+    }
+
+    /**
+     * Combination cardinality guard settings (#26).
+     *
+     * @since 0.1.0
+     */
+    public static class CombinationGuardProperties {
+
+        private List<String> keys = new ArrayList<>();
+        private int minSupport = 20;
+        private Duration window = Duration.ofMinutes(15);
+        private List<String> namePrefixes = new ArrayList<>();
+
+        /** @return guarded tag keys; empty disables the guard */
+        public List<String> getKeys() {
+            return keys;
+        }
+
+        /** @param keys guarded tag keys */
+        public void setKeys(final List<String> keys) {
+            this.keys = keys;
+        }
+
+        /** @return minimum events per window before a combination reveals */
+        public int getMinSupport() {
+            return minSupport;
+        }
+
+        /** @param minSupport minimum support */
+        public void setMinSupport(final int minSupport) {
+            this.minSupport = minSupport;
+        }
+
+        /** @return tumbling support window */
+        public Duration getWindow() {
+            return window;
+        }
+
+        /** @param window tumbling support window */
+        public void setWindow(final Duration window) {
+            this.window = window;
+        }
+
+        /** @return meter-name prefixes in scope; empty means all names */
+        public List<String> getNamePrefixes() {
+            return namePrefixes;
+        }
+
+        /** @param namePrefixes meter-name prefixes in scope */
+        public void setNamePrefixes(final List<String> namePrefixes) {
+            this.namePrefixes = namePrefixes;
+        }
+    }
+
+    /**
+     * Tag PII sentinel settings (#29).
+     *
+     * @since 0.1.0
+     */
+    public static class PrivacyProperties {
+
+        private boolean enabled;
+        private boolean saasDefaults = true;
+        private List<String> denyKeys = new ArrayList<>();
+
+        /** @return {@code true} when the privacy policy is composed */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        /** @param enabled {@code true} to compose the privacy policy */
+        public void setEnabled(final boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /** @return whether the SaaS default deny list is included */
+        public boolean isSaasDefaults() {
+            return saasDefaults;
+        }
+
+        /** @param saasDefaults include the SaaS default deny list */
+        public void setSaasDefaults(final boolean saasDefaults) {
+            this.saasDefaults = saasDefaults;
+        }
+
+        /** @return additional deny-listed keys */
+        public List<String> getDenyKeys() {
+            return denyKeys;
+        }
+
+        /** @param denyKeys additional deny-listed keys */
+        public void setDenyKeys(final List<String> denyKeys) {
+            this.denyKeys = denyKeys;
+        }
     }
 
     /**
