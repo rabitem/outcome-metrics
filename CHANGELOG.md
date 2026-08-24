@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Per-request outcome scope filter for Spring Boot (#54): opt-in `outcome.metrics.scope.enabled`
+  registers a servlet filter opening an `OutcomeScope` per request. Off by default (enabling
+  changes the `occurrence` split); servlet dispatch only — WebFlux and reactive Quarkus hop
+  threads, where a ThreadLocal scope would corrupt rather than help, and deliberately fail open.
+
 - Vocabulary attestation (#64): `VocabularyAttestation` in `outcome-metrics-test` renders reason
   codes, SLO ids, and experiment ids as canonical JSON and diffs them against a committed file —
   vocabulary drift fails CI, and `-Doutcome.metrics.attestation.update=true` regenerates the file

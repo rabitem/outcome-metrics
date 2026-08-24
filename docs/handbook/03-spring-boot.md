@@ -95,3 +95,19 @@ public class OrderService {
 | Duplicate HTTP timers | Instrumenting controllers Actuator already covers |
 
 Overflow gauge (when tag limits are set): `outcome.metrics.tag_value_overflows`.
+
+## Per-request outcome scope
+
+Opt in to request-scoped coalescing (#18): a servlet filter opens an `OutcomeScope` per request so
+repeat observations within one request tag `occurrence=repeat`:
+
+```yaml
+outcome:
+  metrics:
+    scope:
+      enabled: true   # off by default: enabling changes the occurrence split on existing series
+```
+
+Servlet (blocking) dispatch only. Async servlet completions after the chain returns, WebFlux, and
+reactive stacks hop threads — a ThreadLocal scope there would corrupt rather than help, so those
+paths fail open to `occurrence=first` by design.

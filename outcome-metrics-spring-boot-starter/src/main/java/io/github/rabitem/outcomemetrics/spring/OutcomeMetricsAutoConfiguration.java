@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.micrometer.observation.autoconfigure.ObservationAutoConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -114,5 +115,22 @@ public class OutcomeMetricsAutoConfiguration {
     @ConditionalOnProperty(prefix = "outcome.metrics.annotation", name = "enabled", havingValue = "true", matchIfMissing = true)
     MeasuredOutcomeAspect measuredOutcomeAspect(final OutcomeObservations outcomeObservations) {
         return new MeasuredOutcomeAspect(outcomeObservations);
+    }
+
+    /**
+     * Registers the per-request {@code OutcomeScope} servlet filter (issues #18/#54).
+     *
+     * <p>Opt-in: enabling changes the {@code occurrence} split on existing series. Servlet
+     * dispatch only — reactive stacks hop threads and fail open by design.
+     *
+     * @return the scope filter
+     */
+    @Bean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    @ConditionalOnClass(jakarta.servlet.Filter.class)
+    @ConditionalOnProperty(prefix = "outcome.metrics.scope", name = "enabled", havingValue = "true")
+    @ConditionalOnMissingBean
+    public OutcomeScopeFilter outcomeScopeFilter() {
+        return new OutcomeScopeFilter();
     }
 }
