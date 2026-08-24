@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- RAG grounding fidelity (#37): `recordGrounded(...)` classifies successes as
+  `grounding=aligned|ignored_evidence|hallucinated_gap|no_corpus_needed` (failures keep
+  `grounding=none`) — the verdict is the caller's judge; asynchronous judges record their own
+  evaluation observation. No parallel counter; distinct from `integrity` on purpose
+  (`integrity=ok` + `grounding=hallucinated_gap` is the blind spot).
+
 - Retry shadow summaries (#36): `recordResilient(...)` attaches `attempt_bucket` (shared with
   #28), typed `dominant_reason`, and `shadow_cost=none|minor|dominant` to the one existing series —
   on success and on final failure (the case that needs it most). No ledger: the caller's resilience
