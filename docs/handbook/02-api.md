@@ -24,15 +24,21 @@ return observations.record(
     () -> placeOrder(cmd));
 ```
 
-Classified success (extra result tag, still keeps `outcome`/`reason`):
+Classified success (extra result tag, still keeps `outcome`/`reason`). **Declare the result-tag
+keys** — every declared key presets to `none` on failure, so label sets stay consistent per meter
+name (#60); an undeclared emitted key fails loudly:
 
 ```java
 return observations.record(
     "order.payment",
     KeyValues.of("step", "classify"),
     () -> status,
-    value -> MetricsTags.pairs("result=" + value));
+    value -> MetricsTags.pairs("result=" + value),
+    "result");
 ```
+
+The tagger overloads without declared keys are deprecated: they emit tag keys on success only,
+which Prometheus-style registries reject the first time a classified operation fails.
 
 `MetricsTags` / result tags are sanitized (`RETRY` → `retry`).
 

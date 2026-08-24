@@ -51,7 +51,8 @@ public class ShipmentService {
                 "demo.shipment.delay",
                 KeyValues.of("step", "classify"),
                 () -> code == null ? "UNKNOWN" : code.strip().toUpperCase(Locale.ROOT),
-                value -> MetricsTags.pairs("result=" + value));
+                value -> MetricsTags.pairs("result=" + value),
+                "result");
     }
 
     private Map<String, Object> doDispatch(final String orderId, final String carrier) {

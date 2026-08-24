@@ -39,6 +39,8 @@ public OutcomeReason outcomeReason() { return () -> "payment_declined"; }
 ```
 
 Tags: `outcome=success|failure`, `reason=none|unknown|<code>`, `integrity=ok|degraded|empty|none`.
+Result taggers: declare keys — `record(name, tags, work, tagger, "result")` presets declared keys
+to `none` on failure (label-set consistency); undeclared emitted keys fail loudly.
 Quiet failures: `recordClassified(name, tags, work, result -> OutcomeIntegrity.DEGRADED)` grades a
 technically successful result; failures carry `integrity=none`.
 Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeats per series

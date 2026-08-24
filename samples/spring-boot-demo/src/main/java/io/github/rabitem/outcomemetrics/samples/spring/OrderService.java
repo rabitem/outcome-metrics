@@ -63,7 +63,8 @@ public class OrderService {
                 "demo.order.payment",
                 KeyValues.of("step", "classify"),
                 () -> status == null ? "UNKNOWN" : status.strip().toUpperCase(Locale.ROOT),
-                value -> MetricsTags.pairs("result=" + value));
+                value -> MetricsTags.pairs("result=" + value),
+                "result");
     }
 
     private Map<String, Object> doPlace(final String sku, final String channel) {

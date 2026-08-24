@@ -3,11 +3,16 @@ package io.github.rabitem.outcomemetrics.observation;
 import io.github.rabitem.outcomemetrics.MessagingTags;
 import io.github.rabitem.outcomemetrics.MetricTagValues;
 import io.github.rabitem.outcomemetrics.MetricsTags;
+import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -135,7 +140,12 @@ public final class OutcomeObservations {
      * @param resultTagger maps a successful result to bounded low-cardinality tags; must not be
      *                     {@code null}
      * @return result from {@code work}
+     * @deprecated result tags are emitted on success only, so an operation that can fail produces
+     * inconsistent label sets under one meter name and Prometheus-style registries reject it (see
+     * issue #60). Use {@link #record(String, KeyValues, Supplier, Function, String...)} and declare
+     * the tag keys — failures then emit every declared key as {@code none}.
      */
+    @Deprecated(since = "0.1.0")
     public <T> T record(
             final String name,
             final KeyValues dimensions,
@@ -148,6 +158,43 @@ public final class OutcomeObservations {
         return runUnchecked(name, context, () -> {
             final T result = work.get();
             context.setResultTags(MetricsTags.sanitize(resultTagger.apply(result)));
+            return result;
+        });
+    }
+
+    /**
+     * Runs work as a result-classified observation with a declared result-tag schema.
+     *
+     * <p>Every declared key presets to {@code none}, so failures emit the same label set as
+     * successes (Prometheus requires consistent label sets per meter name — issue #60). A tagger
+     * that omits a declared key leaves {@code none}; a tagger that emits an <em>undeclared</em> key
+     * fails the observation loudly — silently dropping it would re-create the bug one key at a
+     * time.
+     *
+     * @param <T>                    result type
+     * @param name                   observation name; must not be blank
+     * @param dimensions             low-cardinality dimension tags; must not be {@code null}
+     * @param work                   work to time and observe; must not be {@code null}
+     * @param resultTagger           maps a successful result to bounded tags over the declared keys
+     * @param declaredResultTagKeys  the complete result-tag key schema; at least one, none blank
+     * @return result from {@code work}
+     */
+    public <T> T record(
+            final String name,
+            final KeyValues dimensions,
+            final Supplier<T> work,
+            final Function<? super T, KeyValues> resultTagger,
+            final String... declaredResultTagKeys) {
+        Objects.requireNonNull(work, "work must not be null");
+        Objects.requireNonNull(resultTagger, "resultTagger must not be null");
+        final KeyValues presets = declaredPresets(declaredResultTagKeys);
+        final OutcomeObservationContext context = context(dimensions);
+        context.markClassified();
+        context.setResultTags(presets);
+        return runUnchecked(name, context, () -> {
+            final T result = work.get();
+            context.setResultTags(declaredOnly(
+                    presets, MetricsTags.sanitize(resultTagger.apply(result)), declaredResultTagKeys));
             return result;
         });
     }
@@ -193,7 +240,11 @@ public final class OutcomeObservations {
      * @param resultTagger maps a successful result to bounded low-cardinality tags; must not be
      *                     {@code null}
      * @return result from {@code work}
+     * @deprecated same label-set hazard as the tagger overload of {@code record} (issue #60); use
+     * {@link #recordClassified(String, KeyValues, Supplier, IntegrityClassifier, Function, String...)}
+     * with declared keys.
      */
+    @Deprecated(since = "0.1.0")
     public <T> T recordClassified(
             final String name,
             final KeyValues dimensions,
@@ -212,6 +263,78 @@ public final class OutcomeObservations {
             context.setResultTags(MetricsTags.sanitize(resultTagger.apply(result)));
             return result;
         });
+    }
+
+    /**
+     * Runs work as an integrity-classified observation with a declared result-tag schema.
+     *
+     * <p>Combines the integrity classifier with declared result tags: every declared key presets to
+     * {@code none} so failures emit the same label set as successes (issue #60); an undeclared
+     * emitted key fails the observation loudly.
+     *
+     * @param <T>                   result type
+     * @param name                  observation name; must not be blank
+     * @param dimensions            low-cardinality dimension tags; must not be {@code null}
+     * @param work                  work to time and observe; must not be {@code null}
+     * @param classifier            grades the successful result's integrity; must not be {@code null}
+     * @param resultTagger          maps a successful result to bounded tags over the declared keys
+     * @param declaredResultTagKeys the complete result-tag key schema; at least one, none blank
+     * @return result from {@code work}
+     */
+    public <T> T recordClassified(
+            final String name,
+            final KeyValues dimensions,
+            final Supplier<T> work,
+            final IntegrityClassifier<? super T> classifier,
+            final Function<? super T, KeyValues> resultTagger,
+            final String... declaredResultTagKeys) {
+        Objects.requireNonNull(work, "work must not be null");
+        Objects.requireNonNull(classifier, "classifier must not be null");
+        Objects.requireNonNull(resultTagger, "resultTagger must not be null");
+        final KeyValues presets = declaredPresets(declaredResultTagKeys);
+        final OutcomeObservationContext context = context(dimensions);
+        context.markClassified();
+        context.setResultTags(presets);
+        return runUnchecked(name, context, () -> {
+            final T result = work.get();
+            context.setIntegrity(
+                    Objects.requireNonNull(classifier.classify(result), "classifier must not return null"));
+            context.setResultTags(declaredOnly(
+                    presets, MetricsTags.sanitize(resultTagger.apply(result)), declaredResultTagKeys));
+            return result;
+        });
+    }
+
+    private static KeyValues declaredPresets(final String[] declaredKeys) {
+        Objects.requireNonNull(declaredKeys, "declaredResultTagKeys must not be null");
+        if (declaredKeys.length == 0) {
+            throw new IllegalArgumentException("declare at least one result tag key");
+        }
+        final List<KeyValue> presets = new ArrayList<>(declaredKeys.length);
+        for (final String key : declaredKeys) {
+            if (key == null || key.isBlank()) {
+                throw new IllegalArgumentException("declared result tag key must not be blank");
+            }
+            presets.add(KeyValue.of(key.strip(), MetricTagValues.NONE));
+        }
+        return KeyValues.of(presets);
+    }
+
+    private static KeyValues declaredOnly(
+            final KeyValues presets,
+            final KeyValues emitted,
+            final String[] declaredKeys) {
+        final Set<String> declared = new HashSet<>();
+        for (final String key : declaredKeys) {
+            declared.add(key.strip());
+        }
+        for (final KeyValue tag : emitted) {
+            if (!declared.contains(tag.getKey())) {
+                throw new IllegalStateException("result tagger emitted undeclared key \""
+                        + tag.getKey() + "\"; declared keys: " + declared);
+            }
+        }
+        return presets.and(emitted);
     }
 
     /**
