@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Vocabulary attestation (#64): `VocabularyAttestation` in `outcome-metrics-test` renders reason
+  codes, SLO ids, and experiment ids as canonical JSON and diffs them against a committed file —
+  vocabulary drift fails CI, and `-Doutcome.metrics.attestation.update=true` regenerates the file
+  as a reviewable diff.
+
 - Foreign reason-source diagnostic (#41): `MetricTagValues.isForeignReasonSource(...)` detects the
   duplicated-library-copy misconfiguration that silently degrades plugin reasons to `unknown`
   (proven with a real child-first-classloader test). Classloader hygiene and GraalVM notes in the

@@ -25,6 +25,23 @@ OutcomeArchRules.outcomeReasonsAreEnums().check(classes);            // opt-in s
 OutcomeArchRules.observationsOnlyFrom("com.acme.metrics..").check(classes);
 ```
 
+## Vocabulary attestation (CI gate for #64)
+
+Commit the declared vocabularies; drift fails the build and regeneration is a reviewable diff:
+
+```java
+@Test
+void vocabularyIsAttested() {
+    VocabularyAttestation.builder()
+        .reasons(reasonRegistry).slos(sloCatalog).experiments(experimentRegistry)
+        .build()
+        .assertMatches(Path.of("src/test/resources/outcome-vocabulary.json"));
+}
+```
+
+Regenerate deliberately: `./mvnw test -Doutcome.metrics.attestation.update=true` rewrites the file
+so the vocabulary change lands in the pull request.
+
 ## Mutation gate (standard PIT, no custom mutators)
 
 Vocabulary contract tests kill standard mutations — no custom mutation engine needed:
