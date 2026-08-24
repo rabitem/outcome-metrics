@@ -74,6 +74,26 @@ routes:
 | `verdict=unjustified` reviews | Break-glass misuse found by review — follow up outside metrics |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
+## Retention classes: two TTLs, one instrumentation
+
+Route long-retention investigation telemetry to its own pipeline with stock Micrometer wiring —
+the library only closes the vocabulary and ships the filters:
+
+```java
+CompositeMeterRegistry composite = new CompositeMeterRegistry();
+composite.add(opsRegistry);                                   // 90d TTL; everything (alerting lives here)
+auditRegistry.config().meterFilter(RetentionFilters.auditOnly());
+composite.add(auditRegistry);                                 // years TTL; explicit audit only
+
+observations.record("payment.release",
+    KeyValues.of(RetentionClass.AUDIT.tag()).and(dims), work); // untagged = ops by default
+```
+
+Per-pipeline tag stripping is `MeterFilter.ignoreTags(...)`; per-pipeline cardinality is
+`boundedTagValues(...)`. `retention=audit` is a **routing hint, never a legal guarantee** — it
+means long-retention investigation telemetry, not the WORM legal record (see the break-glass rule:
+dashboards are never audit evidence).
+
 ## Kill switches
 
 | Property | Effect |

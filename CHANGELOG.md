@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Retention-class routing (#35): closed `retention=ops|audit` vocabulary (`RetentionClass`) and
+  prebuilt `RetentionFilters.auditOnly()`/`excludeAudit()` for `CompositeMeterRegistry` children —
+  stock Micrometer does the routing; untagged observations are ops-class by default; documented as
+  a routing hint, never a legal guarantee.
+
 - Break-glass lifecycle observations (#34): `BreakGlass` — closed
   `break_glass=activation|access|review|closure` stage vocabulary (alert on the activation rate:
   an override is a success that must alert), `recordReviewLag(...)` with
