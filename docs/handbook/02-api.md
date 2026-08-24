@@ -478,6 +478,26 @@ dashboard: pin-event rate against duration shifts of your outcome timers. Per-ob
 attribution (thread × time-window correlation) costs more than it tells and is deliberately not
 offered.
 
+## Plugins, classloaders, and native images
+
+If a plugin ships its **own copy** of this library, its exceptions implement a *different*
+`OutcomeReasonSource` of the same name — `instanceof` fails and every plugin reason degrades to
+`unknown`. The fix is deployment hygiene, not federation machinery: the host exports the API
+package, plugins depend on it in **provided scope**, delegation is parent-first for
+`io.github.rabitem.outcomemetrics.*`, and the host owns the `MeterRegistry` and injects it.
+Diagnose the misconfiguration (in tests or error handlers, not the hot path):
+
+```java
+if (MetricTagValues.isForeignReasonSource(error)) {
+    // a foreign copy of OutcomeReasonSource is on the classpath — fix the plugin's dependencies
+}
+```
+
+GraalVM native: reason enums registered by class literal (`ReasonRegistry.vocabulary(MyReasons.class)`)
+are reachable by construction — this library performs no by-name reason loading, so no
+reflect-config is needed. The CI gate for vocabulary completeness is the attestation export (#64)
+plus `ReasonVocabularyContracts` (#31).
+
 ## Record with an annotation
 
 ```java
