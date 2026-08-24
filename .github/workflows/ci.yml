@@ -49,8 +49,13 @@ jobs:
           cache: maven
           check-latest: false
       - name: Install library modules
-        run: ./mvnw -B -ntp install -DskipTests
+        # Build cache can skip install:install without writing to ~/.m2
+        run: ./mvnw -B -ntp install -DskipTests -Dmaven.build.cache.enabled=false
       - name: Install BOM
-        run: ./mvnw -f outcome-metrics-bom/pom.xml -B -ntp install
+        run: ./mvnw -f outcome-metrics-bom/pom.xml -B -ntp install -Dmaven.build.cache.enabled=false
       - name: Verify samples
-        run: ./mvnw -f samples/pom.xml -B -ntp verify
+        run: |
+          VERSION="$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)"
+          ./mvnw -f samples/pom.xml -B -ntp verify \
+            -Doutcome-metrics.version="$VERSION" \
+            -Dmaven.build.cache.enabled=false
