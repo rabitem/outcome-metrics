@@ -27,6 +27,7 @@ public class OutcomeObservationContext extends Observation.Context {
     private String reason;
     private String alertability;
     private KeyValues guardedTags;
+    private KeyValues scrubbedBase;
     private boolean settled;
 
     /**
@@ -167,6 +168,22 @@ public class OutcomeObservationContext extends Observation.Context {
      */
     KeyValues cachedGuardedTags() {
         return guardedTags;
+    }
+
+    /**
+     * Caches the privacy-scrubbed base tags so redactions are counted once per observation.
+     */
+    void cacheScrubbedBase(final KeyValues scrubbedBase) {
+        this.scrubbedBase = scrubbedBase;
+    }
+
+    /**
+     * Returns the cached privacy-scrubbed base tags.
+     *
+     * @return cached tags, or {@code null} before the convention evaluated them
+     */
+    KeyValues cachedScrubbedBase() {
+        return scrubbedBase;
     }
 
     /**

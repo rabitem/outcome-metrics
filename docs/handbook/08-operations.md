@@ -65,6 +65,7 @@ routes:
 | `fate=dead_letter` rises | Poison message influx (bad producer deploy, schema drift) |
 | `fate=unknown` rises | Delivery fate classifier gaps — extend it |
 | `lag_bucket=gte_10m` with `outcome=success` | Work succeeding but far too late (silent SLA burn) |
+| `tag_privacy.redacted` rises | Code is putting identity data into tags — fix the call site |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches
