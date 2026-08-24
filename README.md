@@ -113,6 +113,7 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | Rail divergence | `RailDivergence.recordWindow` timer with `resolution=converged/returned/adjusted/written_off`; state pairs are caller vocabularies |
 | Break-glass | `break_glass` stage vocabulary + `verdict`-tagged review-lag timer; alert on activation rate; metrics ≠ audit trail |
 | Retention routing | `retention=ops`/`audit` vocabulary + `RetentionFilters` on composite-registry children; untagged = ops |
+| Retry shadow | `recordResilient`: `attempt_bucket` + typed `dominant_reason` + `shadow_cost=none/minor/dominant` on success **and** failure |
 | Alert routing | `alertability` tag (`page`/`ticket`/`none`) declared per reason; unclassified failures page |
 | Idempotency | `idempotency=applied`/`duplicate_skipped` on success, `none` on failure; conflicts/stale/missing-key are failure reasons |
 | Shared resources | `SharedResource` five-tag bundle (`owned`/`borrowed`/`pooled`); factories reject UUID-shaped values |

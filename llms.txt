@@ -45,6 +45,9 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+Retry shadow: `recordResilient(name, tags, work, () -> RetryShadow.of(attempts, dominantReason,
+shadowTime, totalTime))` — tags `attempt_bucket`/`dominant_reason`/`shadow_cost` on success AND
+failure; `RetryShadow.firstTry()` for clean calls; misbehaving supplier leaves `unknown` presets.
 Retention: tag `RetentionClass.AUDIT.tag()` (untagged = ops); wire `CompositeMeterRegistry` with
 `RetentionFilters.auditOnly()` on the long-TTL child (`excludeAudit()` for strict splits);
 routing hint, never a legal guarantee.
