@@ -27,6 +27,8 @@ import java.lang.reflect.Method;
 })
 public class MeasuredOutcomeInterceptor {
 
+    private static final boolean MUTINY_BINDING_AVAILABLE = mutinyBindingPresent();
+
     private final OutcomeObservations outcomeObservations;
 
     /**
@@ -51,10 +53,17 @@ public class MeasuredOutcomeInterceptor {
         final Method method = context.getMethod();
         final MeasuredOutcome typeAnnotation = MeasuredOutcomeSupport.findTypeAnnotation(method.getDeclaringClass());
         final MeasuredOutcome methodAnnotation = MeasuredOutcomeSupport.findMethodAnnotation(method);
+        final String name = MeasuredOutcomeSupport.resolveName(typeAnnotation, methodAnnotation);
+        final var tags = MeasuredOutcomeSupport.resolveTags(typeAnnotation, methodAnnotation);
+        if (MUTINY_BINDING_AVAILABLE && MutinyBinding.isReactive(method.getReturnType())) {
+            // Terminal-signal binding (#39/#81): observing assembly would stamp success before
+            // anything ran. Assembly runs unobserved; each subscription settles at its terminal.
+            return MutinyBinding.bind(outcomeObservations, name, tags, context.proceed());
+        }
         try {
             return outcomeObservations.recordChecked(
-                    MeasuredOutcomeSupport.resolveName(typeAnnotation, methodAnnotation),
-                    MeasuredOutcomeSupport.resolveTags(typeAnnotation, methodAnnotation),
+                    name,
+                    tags,
                     (CheckedSupplier<Object>) context::proceed);
         } catch (final Exception ex) {
             throw ex;
@@ -66,5 +75,39 @@ public class MeasuredOutcomeInterceptor {
     @SuppressWarnings("unchecked")
     private static <T, E extends Throwable> T sneakyThrow(final Throwable throwable) throws E {
         throw (E) throwable;
+    }
+
+    private static boolean mutinyBindingPresent() {
+        try {
+            Class.forName("io.github.rabitem.outcomemetrics.mutiny.MutinyOutcomes", false,
+                    MeasuredOutcomeInterceptor.class.getClassLoader());
+            Class.forName("io.smallrye.mutiny.Uni", false,
+                    MeasuredOutcomeInterceptor.class.getClassLoader());
+            return true;
+        } catch (final ClassNotFoundException | LinkageError absent) {
+            return false;
+        }
+    }
+
+    /**
+     * Loaded only when the optional {@code outcome-metrics-mutiny} module is on the classpath.
+     */
+    private static final class MutinyBinding {
+
+        private MutinyBinding() {
+        }
+
+        static boolean isReactive(final Class<?> returnType) {
+            return io.github.rabitem.outcomemetrics.mutiny.MutinyOutcomes.isReactiveReturn(returnType);
+        }
+
+        static Object bind(
+                final OutcomeObservations observations,
+                final String name,
+                final io.micrometer.common.KeyValues tags,
+                final Object pipeline) {
+            return io.github.rabitem.outcomemetrics.mutiny.MutinyOutcomes.bind(
+                    observations, name, tags, pipeline);
+        }
     }
 }

@@ -79,3 +79,16 @@ Mirrors the Spring starter (#57): `outcome.metrics.reason-budget.*` (`enabled`,
 toggles), `outcome.metrics.reason-registry.codes`, `outcome.metrics.combination-guard.*`
 (`keys`, `min-support`, `window`, `name-prefixes`), and `outcome.metrics.privacy.*`
 (`enabled`, `saas-defaults`, `deny-keys`). Binders register their gauges automatically.
+
+## Reactive (Mutiny) terminal binding
+
+Add `outcome-metrics-mutiny` and `@MeasuredOutcome` on `Uni`/`Multi`-returning beans binds to the
+terminal signal instead of assembly (the annotation no longer lies, #39/#81). Programmatic:
+
+```java
+return MutinyOutcomes.record(observations, "order.fetch", dims, client.fetch(id));
+```
+
+One observation per subscription (a retry is two attempts); cancellation records
+`reason=cancelled, alertability=none` (schema floor). An unterminated `Multi` is a never-stopped
+observation — bind at request granularity.

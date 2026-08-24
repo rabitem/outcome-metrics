@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Mutiny terminal binding (#81): new `outcome-metrics-mutiny` module (`MutinyOutcomes.record` for
+  `Uni`/`Multi` over the #39 primitive, one observation per subscription, cancellation as schema
+  floor) and Quarkus interceptor auto-binding for reactive return types behind a classpath probe —
+  `@MeasuredOutcome` on a `Uni` no longer stamps success at assembly.
+
 - Outcome propagation contracts (#72): `OutcomePropagationContracts` in `outcome-metrics-test`
   verifies the documented async semantics against real executors — scope confinement (a
   thread-local-propagating agent or same-thread executor fails with guidance: propagated scopes

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.rabitem</groupId>
+        <artifactId>outcome-metrics-parent</artifactId>
+        <version>0.1.0-beta.2</version>
+    </parent>
+
+    <artifactId>outcome-metrics-mutiny</artifactId>
+    <name>Outcome Metrics Mutiny</name>
+    <description>
+        Terminal-signal outcome binding for Mutiny: observations settle on
+        item/failure/cancellation instead of at pipeline assembly.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.rabitem</groupId>
+            <artifactId>outcome-metrics</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.smallrye.reactive</groupId>
+            <artifactId>mutiny</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

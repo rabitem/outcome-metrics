@@ -50,6 +50,7 @@
         <module>outcome-metrics-processor</module>
         <module>outcome-metrics-test</module>
         <module>outcome-metrics-reactor</module>
+        <module>outcome-metrics-mutiny</module>
         <module>outcome-metrics-spring-boot-starter</module>
         <module>outcome-metrics-quarkus-parent</module>
     </modules>
@@ -71,6 +72,7 @@
         <archunit.version>1.5.0</archunit.version>
         <reactor.version>3.8.7</reactor.version>
         <jakarta-servlet.version>6.1.0</jakarta-servlet.version>
+        <mutiny.version>3.3.0</mutiny.version>
 
         <jacoco.version>0.8.15</jacoco.version>
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
@@ -219,6 +221,11 @@
                 <groupId>jakarta.servlet</groupId>
                 <artifactId>jakarta.servlet-api</artifactId>
                 <version>${jakarta-servlet.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye.reactive</groupId>
+                <artifactId>mutiny</artifactId>
+                <version>${mutiny.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.projectreactor</groupId>
