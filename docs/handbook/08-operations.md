@@ -51,6 +51,8 @@ routes:
 | `reason_budget.suppressed` rises | Distinct failure codes exceed the budget — expand it or trim the vocabulary |
 | `reason=idempotency_conflict` | Same key, different payload: upstream producer bug (pages by default) |
 | `idempotency=duplicate_skipped` ratio shifts | Redelivery storm or dedup-window change upstream |
+| `disposition=diverged` rises | Client-claimed successes not matching server state |
+| `disposition=abandoned` rises | Flows dying mid-way (app closed, sync never completed) |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches

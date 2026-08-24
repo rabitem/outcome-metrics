@@ -224,17 +224,62 @@ public final class OutcomeObservations {
             final KeyValues dimensions,
             final Supplier<T> work,
             final IdempotencyClassifier<? super T> classifier) {
-        Objects.requireNonNull(work, "work must not be null");
         Objects.requireNonNull(classifier, "classifier must not be null");
+        return recordDeclaredResultTag(name, dimensions, work, IdempotencyOutcome.TAG_IDEMPOTENCY,
+                result -> Objects.requireNonNull(
+                        classifier.classify(result), "classifier must not return null").tagValue());
+    }
+
+    /**
+     * Runs a server-side reconciliation pass as an observation.
+     *
+     * <p>The dimensions automatically carry {@code phase=reconcile} (overriding any caller-supplied
+     * {@code phase}). Successful passes carry a {@code disposition} tag with the classifier's
+     * finding ({@code confirmed}, {@code diverged}, {@code abandoned} or {@code deferred}); failures
+     * carry {@code disposition=none}, keeping label sets consistent per meter name. Abandonment and
+     * divergence are findings of a successful reconciliation, not new {@code outcome} values —
+     * {@code outcome} stays binary.
+     *
+     * <p>If {@code classifier} throws or returns {@code null}, the observation records a failure.
+     *
+     * @param <T>        result type
+     * @param name       observation name; must not be blank
+     * @param dimensions low-cardinality dimension tags; must not be {@code null}
+     * @param work       reconciliation work to time and observe; must not be {@code null}
+     * @param classifier maps the successful result to its reconciliation finding; must not be
+     *                   {@code null}
+     * @return result from {@code work}
+     */
+    public <T> T recordReconciliation(
+            final String name,
+            final KeyValues dimensions,
+            final Supplier<T> work,
+            final ReconcileClassifier<? super T> classifier) {
+        Objects.requireNonNull(classifier, "classifier must not be null");
+        Objects.requireNonNull(dimensions, "dimensions must not be null");
+        return recordDeclaredResultTag(
+                name,
+                dimensions.and(OutcomePhase.RECONCILE.tag()),
+                work,
+                ReconcileDisposition.TAG_DISPOSITION,
+                result -> Objects.requireNonNull(
+                        classifier.classify(result), "classifier must not return null").tagValue());
+    }
+
+    private <T> T recordDeclaredResultTag(
+            final String name,
+            final KeyValues dimensions,
+            final Supplier<T> work,
+            final String tagKey,
+            final Function<? super T, String> successValue) {
+        Objects.requireNonNull(work, "work must not be null");
         final OutcomeObservationContext context = context(dimensions);
         context.markClassified();
         // Preset so a failure still emits the tag key with value none, keeping label sets consistent.
-        context.setResultTags(KeyValues.of(IdempotencyOutcome.TAG_IDEMPOTENCY, MetricTagValues.NONE));
+        context.setResultTags(KeyValues.of(tagKey, MetricTagValues.NONE));
         return observation(name, context).observe(() -> {
             final T result = work.get();
-            final IdempotencyOutcome outcome =
-                    Objects.requireNonNull(classifier.classify(result), "classifier must not return null");
-            context.setResultTags(KeyValues.of(IdempotencyOutcome.TAG_IDEMPOTENCY, outcome.tagValue()));
+            context.setResultTags(KeyValues.of(tagKey, successValue.apply(result)));
             return result;
         });
     }
