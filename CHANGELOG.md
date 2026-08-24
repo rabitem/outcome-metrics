@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `outcome-metrics-test` module (#31): AssertJ-style contracts — `hasConsistentLabelSets()` (the
+  test-time detector for #60), `hasOutcomeSchema(...)`, `hasSeriesCardinalityAtMost(...)`,
+  `hasNoPrivacyViolations(policy)` — plus `ReasonVocabularyContracts.assertWellFormed(...)` and
+  optional ArchUnit rules (`outcomeReasonsAreEnums`, `observationsOnlyFrom`). No JUnit dependency;
+  no custom PIT mutators (standard PIT config documented instead); propagation verifier split to
+  #72.
+
 - Experiment outcome slices (#30): `ExperimentRegistry` with build-time caps (`maxActive`,
   declared arms ≤ 6) emits `experiment`/`variant` tags; unregistered runtime ids collapse to
   `unregistered`/`unknown` (raw flag keys never become tag values), undeclared arms collapse the

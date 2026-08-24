@@ -45,6 +45,9 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+Testing: `outcome-metrics-test` — `assertThatOutcomes(registry).hasConsistentLabelSets()
+.hasOutcomeSchema(name).hasSeriesCardinalityAtMost(name, n).hasNoPrivacyViolations(policy)`;
+`ReasonVocabularyContracts.assertWellFormed(EnumClass)`; optional `OutcomeArchRules`.
 Experiments: `ExperimentRegistry.builder().experiment("checkout-v2").build().slice(id, arm)` →
 `experiment`/`variant` tags; unregistered ids collapse (`unregistered`/`unknown`) + counter;
 un-sliced traffic on the same name uses `ExperimentRegistry.none()` for label-set consistency.
