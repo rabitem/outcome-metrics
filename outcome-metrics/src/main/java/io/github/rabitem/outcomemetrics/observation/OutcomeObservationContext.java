@@ -24,6 +24,7 @@ public class OutcomeObservationContext extends Observation.Context {
     private OutcomeIntegrity integrity = OutcomeIntegrity.OK;
     private boolean classified;
     private String occurrence;
+    private String reason;
 
     /**
      * Creates a context.
@@ -113,5 +114,22 @@ public class OutcomeObservationContext extends Observation.Context {
      */
     String cachedOccurrence() {
         return occurrence;
+    }
+
+    /**
+     * Caches the emitted {@code reason} tag value so repeated convention lookups and concurrent
+     * budget changes cannot change it mid-observation.
+     */
+    void cacheReason(final String reason) {
+        this.reason = reason;
+    }
+
+    /**
+     * Returns the cached {@code reason} tag value.
+     *
+     * @return cached value, or {@code null} before the convention evaluated it
+     */
+    String cachedReason() {
+        return reason;
     }
 }

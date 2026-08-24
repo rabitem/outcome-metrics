@@ -21,6 +21,7 @@ import java.util.function.Supplier;
 public final class OutcomeObservations {
 
     private final ObservationRegistry observationRegistry;
+    private final OutcomeObservationConvention convention;
 
     /**
      * Creates an outcome observation helper.
@@ -28,7 +29,26 @@ public final class OutcomeObservations {
      * @param observationRegistry registry to record against; must not be {@code null}
      */
     public OutcomeObservations(final ObservationRegistry observationRegistry) {
+        this(observationRegistry, OutcomeObservationConvention.INSTANCE);
+    }
+
+    /**
+     * Creates an outcome observation helper whose failure reason codes flow through a
+     * {@link ReasonBudget}.
+     *
+     * @param observationRegistry registry to record against; must not be {@code null}
+     * @param reasonBudget        budget admitting reason codes per observation name; must not be
+     *                            {@code null}
+     */
+    public OutcomeObservations(final ObservationRegistry observationRegistry, final ReasonBudget reasonBudget) {
+        this(observationRegistry, OutcomeObservationConvention.withReasonBudget(reasonBudget));
+    }
+
+    private OutcomeObservations(
+            final ObservationRegistry observationRegistry,
+            final OutcomeObservationConvention convention) {
         this.observationRegistry = Objects.requireNonNull(observationRegistry, "observationRegistry must not be null");
+        this.convention = convention;
     }
 
     /**
@@ -188,7 +208,7 @@ public final class OutcomeObservations {
             throw new IllegalArgumentException("observation name must not be blank");
         }
         return Observation.createNotStarted(name.strip(), () -> context, observationRegistry)
-                .observationConvention(OutcomeObservationConvention.INSTANCE);
+                .observationConvention(convention);
     }
 
     private OutcomeObservationContext context(final KeyValues dimensions) {

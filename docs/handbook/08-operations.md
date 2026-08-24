@@ -20,6 +20,10 @@ sum(rate(demo_invoice_render_seconds_count{outcome="success",integrity="ok"}[5m]
 sum(rate(demo_invoice_render_seconds_count{outcome="success"}[5m]))
 
 outcome_metrics_tag_value_overflows
+
+# Reason budget: 0 collapsed / 1 expanded, plus codes folded into reason="other"
+outcome_metrics_reason_budget_expanded
+outcome_metrics_reason_budget_suppressed
 ```
 
 ## Alerts worth having
@@ -30,6 +34,7 @@ outcome_metrics_tag_value_overflows
 | `reason=unknown` rises | Missing `OutcomeReasonSource` |
 | Integrity rate < success rate | Quiet failures: degraded/empty results behind HTTP 200 |
 | `occurrence=repeat` rises | Repeat storms inside single requests (retry loops, fan-out amplification) |
+| `reason_budget.suppressed` rises | Distinct failure codes exceed the budget — expand it or trim the vocabulary |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches

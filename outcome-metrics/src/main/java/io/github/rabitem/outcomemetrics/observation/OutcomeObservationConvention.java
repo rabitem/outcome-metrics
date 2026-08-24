@@ -7,6 +7,8 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationConvention;
 import org.jspecify.annotations.NonNull;
 
+import java.util.Objects;
+
 /**
  * Maps an {@link OutcomeObservationContext} to low-cardinality metric and span tags.
  *
@@ -21,8 +23,8 @@ import org.jspecify.annotations.NonNull;
  */
 public final class OutcomeObservationConvention implements ObservationConvention<OutcomeObservationContext> {
 
-    /** Shared stateless convention instance. */
-    public static final OutcomeObservationConvention INSTANCE = new OutcomeObservationConvention();
+    /** Shared unbudgeted convention instance. */
+    public static final OutcomeObservationConvention INSTANCE = new OutcomeObservationConvention(null);
 
     /** Outcome tag name. */
     public static final String TAG_OUTCOME = "outcome";
@@ -48,7 +50,21 @@ public final class OutcomeObservationConvention implements ObservationConvention
     /** Failure outcome tag value. */
     public static final String OUTCOME_FAILURE = "failure";
 
-    private OutcomeObservationConvention() {
+    private final ReasonBudget reasonBudget;
+
+    private OutcomeObservationConvention(final ReasonBudget reasonBudget) {
+        this.reasonBudget = reasonBudget;
+    }
+
+    /**
+     * Creates a convention whose failure reason codes are admitted through a {@link ReasonBudget}.
+     *
+     * @param reasonBudget budget admitting reason codes per observation name; must not be {@code null}
+     * @return a budgeted convention
+     */
+    public static OutcomeObservationConvention withReasonBudget(final ReasonBudget reasonBudget) {
+        return new OutcomeObservationConvention(
+                Objects.requireNonNull(reasonBudget, "reasonBudget must not be null"));
     }
 
     @Override
@@ -58,7 +74,7 @@ public final class OutcomeObservationConvention implements ObservationConvention
         final KeyValues tags;
         if (error != null) {
             tags = base.and(TAG_OUTCOME, OUTCOME_FAILURE)
-                    .and(TAG_REASON, MetricTagValues.reasonCode(error))
+                    .and(TAG_REASON, failureReason(context, error))
                     .and(TAG_INTEGRITY, MetricTagValues.NONE);
         } else {
             tags = base.and(TAG_OUTCOME, OUTCOME_SUCCESS)
@@ -66,6 +82,17 @@ public final class OutcomeObservationConvention implements ObservationConvention
                     .and(TAG_INTEGRITY, context.integrity().tagValue());
         }
         return tags.and(TAG_OCCURRENCE, occurrence(context, tags));
+    }
+
+    private String failureReason(final OutcomeObservationContext context, final Throwable error) {
+        final String cached = context.cachedReason();
+        if (cached != null) {
+            return cached;
+        }
+        final String code = MetricTagValues.reasonCode(error);
+        final String reason = reasonBudget == null ? code : reasonBudget.admit(context.getName(), code);
+        context.cacheReason(reason);
+        return reason;
     }
 
     private static String occurrence(final OutcomeObservationContext context, final KeyValues tags) {
