@@ -7,6 +7,7 @@
 | `outcome` | `success` / `failure` | success = returned; failure = threw |
 | `reason` | `none` / `unknown` / your code | success → `none`; `OutcomeReasonSource` → your code; else `unknown` |
 | `integrity` | `ok` / `degraded` / `empty` / `none` | success → classifier verdict (default `ok`); failure → `none` |
+| `occurrence` | `first` / `repeat` | first observation of a series per `OutcomeScope` → `first`; identical repeats → `repeat`; no scope → always `first` |
 
 Do not put user ids, emails, UUIDs, or free text into tags or reason codes.
 
@@ -53,6 +54,24 @@ return observations.recordClassified(
 The vocabulary is closed: `ok`, `degraded`, `empty`. A classifier that throws or returns `null`
 fails the observation — an integrity check that silently passes would itself be a quiet failure.
 An overload accepts a result tagger as well.
+
+## Scopes: keep repeat storms out of SLIs
+
+One downstream timeout in a request can emit many identical failure observations and inflate SLI
+counters. Open an `OutcomeScope` per unit of work; the first observation of each series is tagged
+`occurrence=first`, identical repeats `occurrence=repeat`:
+
+```java
+try (OutcomeScope scope = OutcomeScope.open()) {
+    handleRequest(); // any records inside, including @MeasuredOutcome methods
+}
+```
+
+Nothing is dropped — timers, spans and totals keep every event; SLI queries filter
+`occurrence="first"`. Deduplication keys on the full series identity (name + all tags), applies
+symmetrically to successes and failures, and fails open: no scope, another thread, or more than
+1024 distinct series per scope → `first`. Scopes are thread-confined (Reactor/coroutines: #39) and
+nest as a stack. Framework modules auto-opening scopes per HTTP request: #54.
 
 ## Record with an annotation
 

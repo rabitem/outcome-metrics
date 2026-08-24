@@ -41,6 +41,8 @@ public OutcomeReason outcomeReason() { return () -> "payment_declined"; }
 Tags: `outcome=success|failure`, `reason=none|unknown|<code>`, `integrity=ok|degraded|empty|none`.
 Quiet failures: `recordClassified(name, tags, work, result -> OutcomeIntegrity.DEGRADED)` grades a
 technically successful result; failures carry `integrity=none`.
+Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeats per series
+`occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Overflow: remap to `other`; gauge `outcome.metrics.tag_value_overflows`.
 
 ## Samples
