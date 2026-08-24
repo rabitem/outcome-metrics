@@ -7,6 +7,7 @@
 | `outcome` | `success` / `failure` | success = returned; failure = threw |
 | `reason` | `none` / `unknown` / your code | success → `none`; `OutcomeReasonSource` → your code; else `unknown` |
 | `integrity` | `ok` / `degraded` / `empty` / `none` | success → classifier verdict (default `ok`); failure → `none` |
+| `alertability` | `page` / `ticket` / `none` | failure → the reason's declared level (default `page`; unclassified → `page`); success → `none` |
 | `occurrence` | `first` / `repeat` | first observation of a series per `OutcomeScope` → `first`; identical repeats → `repeat`; no scope → always `first` |
 
 Do not put user ids, emails, UUIDs, or free text into tags or reason codes.
@@ -113,12 +114,27 @@ public final class PaymentDeclinedException
 
     @Override
     public OutcomeReason outcomeReason() {
-        return () -> "payment_declined";
+        return new OutcomeReason() {
+            @Override
+            public String code() {
+                return "payment_declined";
+            }
+
+            @Override
+            public Alertability alertability() {
+                return Alertability.NONE; // expected business outcome: don't page
+            }
+        };
     }
 }
 ```
 
 Cause chain is walked. Unclassified exceptions → `reason=unknown` (not the exception class name).
+
+Every failure **pages by default** (`alertability=page`); downgrade expected failures explicitly to
+`TICKET` or `NONE` by overriding `alertability()`. Unclassified failures and broken
+implementations page — nothing is silenced by omission. The level derives from the reason object,
+so a `ReasonBudget`-suppressed `reason=other` still carries its declared alertability.
 
 ## What this library does not do
 

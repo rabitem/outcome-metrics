@@ -24,6 +24,20 @@ outcome_metrics_tag_value_overflows
 # Reason budget: 0 collapsed / 1 expanded, plus codes folded into reason="other"
 outcome_metrics_reason_budget_expanded
 outcome_metrics_reason_budget_suppressed
+
+# Page only on actionable failures; expected declines stay off the pager
+sum by (reason) (rate(demo_order_place_seconds_count{outcome="failure",alertability="page"}[5m]))
+```
+
+Route by `alertability` instead of regexing reason codes — e.g. in Alertmanager:
+
+```yaml
+routes:
+  - matchers: [alertability="page"]
+    receiver: pagerduty
+  - matchers: [alertability="ticket"]
+    receiver: ticket-queue
+# alertability="none" (expected business declines): dashboards only, no route
 ```
 
 ## Alerts worth having

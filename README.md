@@ -101,6 +101,7 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | Quiet failures | Parallel `integrity` tag (`ok`/`degraded`/`empty`); `outcome` stays binary for SLOs |
 | Repeat storms | `occurrence` tag (`first`/`repeat`) per `OutcomeScope`; repeats stay recorded, SLIs filter `first` |
 | Reason cardinality | Optional `ReasonBudget`: bounded codes per name, operator-expandable at runtime, never evicts |
+| Alert routing | `alertability` tag (`page`/`ticket`/`none`) declared per reason; unclassified failures page |
 | Config prefix | `outcome.metrics.*` frozen until 1.0 |
 | Quarkus extension status | `preview` until broader production dogfooding |
 

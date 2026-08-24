@@ -12,8 +12,9 @@ import java.util.Objects;
 /**
  * Maps an {@link OutcomeObservationContext} to low-cardinality metric and span tags.
  *
- * <p>Every observation gets {@code outcome}, {@code reason}, {@code integrity} and
- * {@code occurrence}. Classified successes may carry additional result tags but never omit the
+ * <p>Every observation gets {@code outcome}, {@code reason}, {@code integrity}, {@code alertability}
+ * and {@code occurrence}. Failures carry the reason's declared {@link Alertability} (default
+ * {@code page}; unclassified failures page); successes carry {@code alertability=none}. Classified successes may carry additional result tags but never omit the
  * outcome schema. Failures carry {@code integrity=none} because no business result was delivered;
  * successes carry the classified integrity, defaulting to {@code ok}. Within an open
  * {@link OutcomeScope} the first observation of a series is {@code occurrence=first} and identical
@@ -34,6 +35,9 @@ public final class OutcomeObservationConvention implements ObservationConvention
 
     /** Integrity tag name. */
     public static final String TAG_INTEGRITY = "integrity";
+
+    /** Alertability tag name. */
+    public static final String TAG_ALERTABILITY = "alertability";
 
     /** Occurrence tag name. */
     public static final String TAG_OCCURRENCE = "occurrence";
@@ -75,13 +79,26 @@ public final class OutcomeObservationConvention implements ObservationConvention
         if (error != null) {
             tags = base.and(TAG_OUTCOME, OUTCOME_FAILURE)
                     .and(TAG_REASON, failureReason(context, error))
-                    .and(TAG_INTEGRITY, MetricTagValues.NONE);
+                    .and(TAG_INTEGRITY, MetricTagValues.NONE)
+                    .and(TAG_ALERTABILITY, alertability(error));
         } else {
             tags = base.and(TAG_OUTCOME, OUTCOME_SUCCESS)
                     .and(TAG_REASON, MetricTagValues.NONE)
-                    .and(TAG_INTEGRITY, context.integrity().tagValue());
+                    .and(TAG_INTEGRITY, context.integrity().tagValue())
+                    .and(TAG_ALERTABILITY, MetricTagValues.NONE);
         }
         return tags.and(TAG_OCCURRENCE, occurrence(context, tags));
+    }
+
+    private static String alertability(final Throwable error) {
+        // Derived from the reason object, not the emitted code: a ReasonBudget-suppressed
+        // reason=other keeps its declared alertability, so suppressed actionable failures still page.
+        final OutcomeReason reason = MetricTagValues.outcomeReason(error);
+        if (reason == null) {
+            return Alertability.PAGE.tagValue();
+        }
+        final Alertability alertability = reason.alertability();
+        return alertability == null ? Alertability.PAGE.tagValue() : alertability.tagValue();
     }
 
     private String failureReason(final OutcomeObservationContext context, final Throwable error) {
