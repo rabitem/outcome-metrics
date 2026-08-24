@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Shared-resource attribution tags (#22): `SharedResource.owned|borrowed|pooled(...)` emits a fixed
+  five-tag bundle (`resource`, `relationship`, `consumer_tier`, `owner_tier`, `pool`) with
+  consistent label sets per relationship (`owner_tier=self`/`shared`, `pool=none` defaults);
+  factories reject UUID-shaped and long-hex values at construction.
+
 - Idempotency outcome classifier (#21): `recordIdempotent(...)` tags successes
   `idempotency=applied|duplicate_skipped` and failures `idempotency=none` (consistent Prometheus
   label sets); `IdempotencyReason` (`idempotency_conflict` pages, `stale_replay` /
