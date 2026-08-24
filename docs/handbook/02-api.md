@@ -250,6 +250,28 @@ observations.record("outbox.publish",
 clamps to `lt_1s`). Message ids, offsets, and partitions must never become tags — partition is an
 int no guard can recognize, so this rule is documentation and review.
 
+## PII sentinel: deny list first, detectors as the net
+
+`sanitizeTagValue` normalizes shape; it does not detect identity data. The opt-in policy redacts
+tag values (keys stay — label sets hold) when the key is deny-listed or the value looks like an
+email, UUID, JWT, IPv4, long hex, or long digit run:
+
+```java
+TagPrivacyPolicy policy = TagPrivacyPolicy.saasDefaults(); // user_id, email, ip, token, ...
+policy.bindTo(meterRegistry); // outcome.metrics.tag_privacy.redacted
+
+OutcomeObservations observations = new OutcomeObservations(
+    observationRegistry,
+    OutcomeObservationConvention.builder().tagPrivacyPolicy(policy).build());
+```
+
+The **deny list is the control** (matched on sanitized keys, so `userId` can't dodge `user_id`);
+detectors are best-effort — pre-sanitized values have lost `@`, dots, and casing, so email/JWT/IPv4
+detection only sees raw values. Known false positive: `1.2.3.4` version strings redact; use
+`v1_2_3_4`. Runtime never throws; in tests, assert `policy.violations(tags)` is empty (#31). PII
+in reason codes is `ReasonRegistry`'s job (#24). Scrubbing runs before all other enforcement so
+raw values never reach the combination guard's memory or the registry.
+
 ## Record with an annotation
 
 ```java

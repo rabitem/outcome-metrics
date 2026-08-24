@@ -26,7 +26,7 @@ public final class OutcomeObservationConvention implements ObservationConvention
 
     /** Shared unenforced convention instance. */
     public static final OutcomeObservationConvention INSTANCE =
-            new OutcomeObservationConvention(null, null, null);
+            new OutcomeObservationConvention(null, null, null, null);
 
     /** Outcome tag name. */
     public static final String TAG_OUTCOME = "outcome";
@@ -58,14 +58,17 @@ public final class OutcomeObservationConvention implements ObservationConvention
     private final ReasonBudget reasonBudget;
     private final ReasonRegistry reasonRegistry;
     private final CombinationGuard combinationGuard;
+    private final TagPrivacyPolicy tagPrivacyPolicy;
 
     private OutcomeObservationConvention(
             final ReasonBudget reasonBudget,
             final ReasonRegistry reasonRegistry,
-            final CombinationGuard combinationGuard) {
+            final CombinationGuard combinationGuard,
+            final TagPrivacyPolicy tagPrivacyPolicy) {
         this.reasonBudget = reasonBudget;
         this.reasonRegistry = reasonRegistry;
         this.combinationGuard = combinationGuard;
+        this.tagPrivacyPolicy = tagPrivacyPolicy;
     }
 
     /**
@@ -102,8 +105,20 @@ public final class OutcomeObservationConvention implements ObservationConvention
         private ReasonBudget reasonBudget;
         private ReasonRegistry reasonRegistry;
         private CombinationGuard combinationGuard;
+        private TagPrivacyPolicy tagPrivacyPolicy;
 
         private Builder() {
+        }
+
+        /**
+         * Sets the PII sentinel applied to caller-supplied tags before all other enforcement.
+         *
+         * @param policy policy; must not be {@code null}
+         * @return this builder
+         */
+        public Builder tagPrivacyPolicy(final TagPrivacyPolicy policy) {
+            this.tagPrivacyPolicy = Objects.requireNonNull(policy, "tagPrivacyPolicy must not be null");
+            return this;
         }
 
         /**
@@ -145,13 +160,14 @@ public final class OutcomeObservationConvention implements ObservationConvention
          * @return a convention with the configured enforcement
          */
         public OutcomeObservationConvention build() {
-            return new OutcomeObservationConvention(reasonBudget, reasonRegistry, combinationGuard);
+            return new OutcomeObservationConvention(
+                    reasonBudget, reasonRegistry, combinationGuard, tagPrivacyPolicy);
         }
     }
 
     @Override
     public @NonNull KeyValues getLowCardinalityKeyValues(final @NonNull OutcomeObservationContext context) {
-        final KeyValues base = context.dimensions().and(context.resultTags());
+        final KeyValues base = scrubbedBase(context);
         final Throwable error = context.getError();
         final KeyValues tags;
         if (error != null) {
@@ -168,6 +184,28 @@ public final class OutcomeObservationConvention implements ObservationConvention
         }
         final KeyValues guarded = guardedTags(context, tags);
         return guarded.and(TAG_OCCURRENCE, occurrence(context, guarded));
+    }
+
+    /**
+     * Scrubs caller-supplied material before any other enforcement, so raw PII never reaches the
+     * combination guard's tuple keys or the registry. Redactions are counted once, on settled
+     * state.
+     */
+    private KeyValues scrubbedBase(final OutcomeObservationContext context) {
+        final KeyValues raw = context.dimensions().and(context.resultTags());
+        if (tagPrivacyPolicy == null) {
+            return raw;
+        }
+        final KeyValues cached = context.cachedScrubbedBase();
+        if (cached != null) {
+            return cached;
+        }
+        if (!context.isSettled()) {
+            return tagPrivacyPolicy.apply(raw, false);
+        }
+        final KeyValues scrubbed = tagPrivacyPolicy.apply(raw, true);
+        context.cacheScrubbedBase(scrubbed);
+        return scrubbed;
     }
 
     /**

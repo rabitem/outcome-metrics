@@ -22,6 +22,9 @@ public final class MetricTagValues {
     /** Tag value used when a cardinality limit remaps an overflowing value. */
     public static final String OTHER = "other";
 
+    /** Tag value used when a privacy policy redacts a value; distinct from {@link #OTHER} on purpose. */
+    public static final String REDACTED = "redacted";
+
     private MetricTagValues() {
     }
 

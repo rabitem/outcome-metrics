@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Tag PII sentinel (#29): opt-in `TagPrivacyPolicy` redacts caller-supplied tag values (keys kept)
+  on deny-listed keys — matched on sanitized form — or identity-shaped values (email, UUID, JWT,
+  IPv4, long hex, long digit runs), counted on `outcome.metrics.tag_privacy.redacted`. Runtime
+  never throws; `violations(...)` is the test hook (#31). Runs before all other enforcement so raw
+  values never reach guard memory. `saasDefaults()` ships a starting deny list.
+
 - Messaging delivery fate (#28): `recordDelivery(...)` emits `fate=processed|retry|dead_letter|drop`
   plus a closed `attempt_bucket`; a misbehaving fate classifier yields `fate=unknown` and never
   masks the original exception. `MessagingTags.lagBucket(...)` serves outbox drain and
