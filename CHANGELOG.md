@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Replay delta vocabulary (#38): `ReplayDelta` adopts the revised contract from the issue
+  discussion — `context_drift` asserted before the verdict comparison voids it instead of blaming
+  the system under test — with the precedence encoded in `classify(...)`. Replay runs record as
+  observations with the `delta` dimension (no parallel counter); fingerprints never become tags.
+
 - RAG grounding fidelity (#37): `recordGrounded(...)` classifies successes as
   `grounding=aligned|ignored_evidence|hallucinated_gap|no_corpus_needed` (failures keep
   `grounding=none`) — the verdict is the caller's judge; asynchronous judges record their own

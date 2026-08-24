@@ -75,6 +75,8 @@ routes:
 | `shadow_cost=dominant` successes rise | Green dashboards hiding retry burn (quota, latency, capacity) |
 | `grounding=hallucinated_gap`/`ignored_evidence` rise | RAG quality regression behind successful responses |
 | `grounding=no_corpus_needed` rises | Retrieval running for answers that don't need it — wasted spend |
+| `delta=verdict_flip` rises | Real non-determinism under pinned context — system-under-test regression |
+| `delta=context_drift` rises | The replay harness can't reproduce its own reads — fix capture, not the model |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Retention classes: two TTLs, one instrumentation
