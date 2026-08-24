@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in `outcome-metrics-processor` module (#25): compile-time validation of `@MeasuredOutcome`
+  constants — malformed tag pairs, blank keys/values, and unresolvable observation names are build
+  errors (they would throw from the interceptor at runtime); legal-but-non-canonical tokens warn.
+  Registered via `annotationProcessorPaths`; added to the BOM.
+
 - Enforced reason vocabulary registry (#24): `ReasonRegistry` (explicit enum/literal registration,
   schema floor implicit) wired via `OutcomeObservationConvention.builder()`. Unregistered reasons
   are distrusted entirely — `reason=unknown` and forced `alertability=page` resolved in one step —

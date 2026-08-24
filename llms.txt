@@ -45,6 +45,8 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+Annotation firewall: add `outcome-metrics-processor` to `annotationProcessorPaths` — malformed
+`@MeasuredOutcome` tag pairs / blank names fail the build; non-canonical tokens warn.
 Reason registry: `OutcomeObservationConvention.builder().reasonRegistry(ReasonRegistry.builder()
 .vocabulary(MyReasons.class).build()).reasonBudget(...).build()` — unregistered reasons emit
 `reason=unknown` + `alertability=page` (self-silencing rogue reasons defeated); never throws.
