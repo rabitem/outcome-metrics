@@ -38,7 +38,9 @@ public Reservation reserve(String sku) { ... }
 public OutcomeReason outcomeReason() { return () -> "payment_declined"; }
 ```
 
-Tags: `outcome=success|failure`, `reason=none|unknown|<code>`.
+Tags: `outcome=success|failure`, `reason=none|unknown|<code>`, `integrity=ok|degraded|empty|none`.
+Quiet failures: `recordClassified(name, tags, work, result -> OutcomeIntegrity.DEGRADED)` grades a
+technically successful result; failures carry `integrity=none`.
 Overflow: remap to `other`; gauge `outcome.metrics.tag_value_overflows`.
 
 ## Samples

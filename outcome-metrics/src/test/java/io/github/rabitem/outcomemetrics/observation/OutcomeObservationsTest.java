@@ -157,6 +157,113 @@ class OutcomeObservationsTest {
     }
 
     @Test
+    @DisplayName("tags unclassified success with integrity ok and failure with integrity none")
+    void defaultIntegrity() {
+        outcomeObservations.record("integrity.default", KeyValues.empty(), () -> {
+        });
+        assertThatThrownBy(() -> outcomeObservations.record(
+                "integrity.failed", KeyValues.empty(), () -> {
+                    throw new IllegalStateException("boom");
+                }))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(meters.get("integrity.default")
+                .tag("outcome", "success")
+                .tag("integrity", "ok")
+                .timer().count()).isEqualTo(1);
+        assertThat(meters.get("integrity.failed")
+                .tag("outcome", "failure")
+                .tag("integrity", "none")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("tags classified success with the classifier's integrity")
+    void classifiedIntegrity() {
+        final String degraded = outcomeObservations.recordClassified(
+                "integrity.classified",
+                KeyValues.of("frame", "render"),
+                () -> "half a pdf",
+                result -> OutcomeIntegrity.DEGRADED);
+        final String empty = outcomeObservations.recordClassified(
+                "integrity.classified",
+                KeyValues.of("frame", "render"),
+                () -> "",
+                result -> result.isEmpty() ? OutcomeIntegrity.EMPTY : OutcomeIntegrity.OK);
+
+        assertThat(degraded).isEqualTo("half a pdf");
+        assertThat(empty).isEmpty();
+        assertThat(meters.get("integrity.classified")
+                .tag("outcome", "success")
+                .tag("reason", "none")
+                .tag("integrity", "degraded")
+                .timer().count()).isEqualTo(1);
+        assertThat(meters.get("integrity.classified")
+                .tag("outcome", "success")
+                .tag("integrity", "empty")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("combines integrity classification with sanitized result tags")
+    void classifiedIntegrityWithResultTags() {
+        final String result = outcomeObservations.recordClassified(
+                "integrity.tagged",
+                KeyValues.empty(),
+                () -> "PARTIAL",
+                value -> OutcomeIntegrity.DEGRADED,
+                value -> KeyValues.of("result", value));
+
+        assertThat(result).isEqualTo("PARTIAL");
+        assertThat(meters.get("integrity.tagged")
+                .tag("outcome", "success")
+                .tag("integrity", "degraded")
+                .tag("result", "partial")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("fails the observation when the classifier returns null or throws")
+    void integrityClassifierMisbehaves() {
+        assertThatThrownBy(() -> outcomeObservations.recordClassified(
+                "integrity.null", KeyValues.empty(), () -> "value", result -> null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("classifier must not return null");
+        assertThatThrownBy(() -> outcomeObservations.recordClassified(
+                "integrity.throws", KeyValues.empty(), () -> "value", result -> {
+                    throw new IllegalStateException("classifier blew up");
+                }))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("classifier blew up");
+
+        assertThat(meters.get("integrity.null")
+                .tag("outcome", "failure")
+                .tag("integrity", "none")
+                .timer().count()).isEqualTo(1);
+        assertThat(meters.get("integrity.throws")
+                .tag("outcome", "failure")
+                .tag("integrity", "none")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("validates integrity classification dependencies")
+    void integrityValidation() {
+        assertThatThrownBy(() -> outcomeObservations.recordClassified(
+                "test.op", KeyValues.empty(), () -> "value", null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("classifier must not be null");
+        assertThatThrownBy(() -> outcomeObservations.recordClassified(
+                "test.op", KeyValues.empty(), null, result -> OutcomeIntegrity.OK))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("work must not be null");
+        assertThatThrownBy(() -> outcomeObservations.recordClassified(
+                "test.op", KeyValues.empty(), () -> "value", result -> OutcomeIntegrity.OK, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("resultTagger must not be null");
+    }
+
+    @Test
     @DisplayName("validates observation name and dependencies")
     void validation() {
         assertThatThrownBy(() -> outcomeObservations.record(" ", KeyValues.empty(), () -> "value"))

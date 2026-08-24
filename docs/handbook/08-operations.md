@@ -11,6 +11,12 @@ sum(rate(demo_order_place_seconds_count[5m]))
 
 sum by (reason) (rate(demo_order_place_seconds_count{outcome="failure"}[5m]))
 
+# Integrity rate: successes that are actually trustworthy.
+# Alert when it diverges from the success rate — that gap is your quiet-failure rate.
+sum(rate(demo_invoice_render_seconds_count{outcome="success",integrity="ok"}[5m]))
+/
+sum(rate(demo_invoice_render_seconds_count{outcome="success"}[5m]))
+
 outcome_metrics_tag_value_overflows
 ```
 
@@ -20,6 +26,7 @@ outcome_metrics_tag_value_overflows
 |---|---|
 | Success ratio drops for a command | Business regression |
 | `reason=unknown` rises | Missing `OutcomeReasonSource` |
+| Integrity rate < success rate | Quiet failures: degraded/empty results behind HTTP 200 |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches

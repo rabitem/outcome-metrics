@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Integrity classification for quiet failures (#17): every observation now carries an `integrity` tag
+  (`ok`/`degraded`/`empty` on success, `none` on failure). New `OutcomeIntegrity` vocabulary,
+  `IntegrityClassifier`, and `OutcomeObservations.recordClassified(...)`; handbook covers the
+  integrity-rate-vs-success-rate alert.
+
 ## [0.1.0-beta.2] - 2026-08-05
 
 ### Fixed

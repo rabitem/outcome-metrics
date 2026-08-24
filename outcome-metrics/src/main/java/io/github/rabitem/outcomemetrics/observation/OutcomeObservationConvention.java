@@ -9,8 +9,10 @@ import org.jspecify.annotations.NonNull;
 /**
  * Maps an {@link OutcomeObservationContext} to low-cardinality metric and span tags.
  *
- * <p>Every observation gets {@code outcome} and {@code reason}. Classified successes may carry
- * additional result tags but never omit the outcome schema.
+ * <p>Every observation gets {@code outcome}, {@code reason} and {@code integrity}. Classified
+ * successes may carry additional result tags but never omit the outcome schema. Failures carry
+ * {@code integrity=none} because no business result was delivered; successes carry the classified
+ * integrity, defaulting to {@code ok}.
  *
  * @since 0.1.0
  */
@@ -24,6 +26,9 @@ public final class OutcomeObservationConvention implements ObservationConvention
 
     /** Reason tag name. */
     public static final String TAG_REASON = "reason";
+
+    /** Integrity tag name. */
+    public static final String TAG_INTEGRITY = "integrity";
 
     /** Success outcome tag value. */
     public static final String OUTCOME_SUCCESS = "success";
@@ -39,9 +44,13 @@ public final class OutcomeObservationConvention implements ObservationConvention
         final KeyValues base = context.dimensions().and(context.resultTags());
         final Throwable error = context.getError();
         if (error != null) {
-            return base.and(TAG_OUTCOME, OUTCOME_FAILURE).and(TAG_REASON, MetricTagValues.reasonCode(error));
+            return base.and(TAG_OUTCOME, OUTCOME_FAILURE)
+                    .and(TAG_REASON, MetricTagValues.reasonCode(error))
+                    .and(TAG_INTEGRITY, MetricTagValues.NONE);
         }
-        return base.and(TAG_OUTCOME, OUTCOME_SUCCESS).and(TAG_REASON, MetricTagValues.NONE);
+        return base.and(TAG_OUTCOME, OUTCOME_SUCCESS)
+                .and(TAG_REASON, MetricTagValues.NONE)
+                .and(TAG_INTEGRITY, context.integrity().tagValue());
     }
 
     @Override

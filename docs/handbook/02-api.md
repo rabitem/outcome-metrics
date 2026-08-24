@@ -6,6 +6,7 @@
 |---|---|---|
 | `outcome` | `success` / `failure` | success = returned; failure = threw |
 | `reason` | `none` / `unknown` / your code | success → `none`; `OutcomeReasonSource` → your code; else `unknown` |
+| `integrity` | `ok` / `degraded` / `empty` / `none` | success → classifier verdict (default `ok`); failure → `none` |
 
 Do not put user ids, emails, UUIDs, or free text into tags or reason codes.
 
@@ -32,6 +33,26 @@ return observations.record(
 ```
 
 `MetricsTags` / result tags are sanitized (`RETRY` → `retry`).
+
+## Integrity: catch quiet failures
+
+HTTP 200 and `outcome=success` can hide a degraded business result (blank PDF, partial write). Grade
+the delivered result with an `IntegrityClassifier` — `outcome` stays `success`, so completion SLOs
+are untouched, but the quiet failure becomes alertable:
+
+```java
+return observations.recordClassified(
+    "invoice.render",
+    KeyValues.of("format", "pdf"),
+    () -> renderInvoice(order),
+    pdf -> pdf.pageCount() == 0 ? OutcomeIntegrity.EMPTY
+        : pdf.hasAllLineItems() ? OutcomeIntegrity.OK
+        : OutcomeIntegrity.DEGRADED);
+```
+
+The vocabulary is closed: `ok`, `degraded`, `empty`. A classifier that throws or returns `null`
+fails the observation — an integrity check that silently passes would itself be a quiet failure.
+An overload accepts a result tagger as well.
 
 ## Record with an annotation
 
