@@ -104,6 +104,7 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | Alert routing | `alertability` tag (`page`/`ticket`/`none`) declared per reason; unclassified failures page |
 | Idempotency | `idempotency=applied`/`duplicate_skipped` on success, `none` on failure; conflicts/stale/missing-key are failure reasons |
 | Shared resources | `SharedResource` five-tag bundle (`owned`/`borrowed`/`pooled`); factories reject UUID-shaped values |
+| Offline sync | `phase=intent`/`commit`/`reconcile` + `disposition` finding (`confirmed`/`diverged`/`abandoned`/`deferred`); `outcome` stays binary |
 | Config prefix | `outcome.metrics.*` frozen until 1.0 |
 | Quarkus extension status | `preview` until broader production dogfooding |
 

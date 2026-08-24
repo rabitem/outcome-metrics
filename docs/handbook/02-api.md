@@ -140,6 +140,34 @@ observations.record(
 values, so a tenant id in a tag fails in your tests, not on the pager. Pool-id boundedness pairs
 with `MetricsMeterFilters.boundedTagValues(...)`.
 
+## Intent–commit–reconcile: abandoned flows become findings, not lies
+
+Offline clients record a local intent, commit it later, and a server job reconciles what actually
+happened. Tag the client phases manually; the reconcile recorder owns its phase and classifies its
+finding:
+
+```java
+// client-side phases
+observations.record("sync.flow", KeyValues.of(OutcomePhase.INTENT.tag()), () -> saveLocal(cmd));
+observations.record("sync.flow", KeyValues.of(OutcomePhase.COMMIT.tag()), () -> pushToServer(cmd));
+
+// server-side reconciliation job (phase=reconcile added automatically)
+observations.recordReconciliation(
+    "sync.reconcile", KeyValues.empty(),
+    () -> reconcile(intentWindow),
+    result -> switch (result.state()) {
+        case MATCHED -> ReconcileDisposition.CONFIRMED;
+        case MISMATCHED -> ReconcileDisposition.DIVERGED;
+        case WINDOW_EXPIRED -> ReconcileDisposition.ABANDONED;
+        case STILL_OPEN -> ReconcileDisposition.DEFERRED;
+    });
+```
+
+Abandonment is a finding of a successful reconciliation, not a new `outcome` value — `outcome`
+stays binary. Failures keep both keys (`phase=reconcile`, `disposition=none`). Alert on
+`disposition=diverged|abandoned` rates. Intent ids, device ids, and sync batch ids never become
+tags.
+
 ## Record with an annotation
 
 ```java
