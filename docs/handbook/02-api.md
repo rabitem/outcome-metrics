@@ -295,6 +295,33 @@ a sliced name needs the bundle**: un-sliced traffic uses `ExperimentRegistry.non
 must match per meter name). For experiment × surface × reason combinatorics, pair with the
 `CombinationGuard`.
 
+## Dual control: witness events, not a widened outcome
+
+Maker-checker gaps span requests and restarts — only your workflow store knows a gap is open, so
+the library holds no lifecycle state. Record witness *events* as observations, close gaps with the
+store-computed duration, and publish pending counts as a gauge:
+
+```java
+// each witness event is a normal observation (tag every event of the name)
+observations.record("payment.release",
+    KeyValues.of(DualControl.WitnessAction.FIRST_APPROVAL.tag()).and("role", "approver"),
+    () -> approve(request));
+
+// on second approval / veto / expiry: record the gap your store measured
+DualControl.recordGap(meterRegistry, "payment.release.witness_gap",
+    KeyValues.of("role", "senior_approver"),
+    store.gapDuration(request), DualControl.GapClosure.COMPLETED);
+
+// pending gaps are a state, not an outcome
+gauges.set("payment.release.pending_gaps", "open witness gaps", Tags.empty(), store.openGapCount());
+```
+
+`veto_after_approval` and `witness_timeout` ship as reasons routed **ticket** — a late veto is the
+control working, and a 72h gap is a process failure, not an outage. Overdue-gap sweeping is the
+reconcile pattern (`recordReconciliation`, #23). Never tag actor ids — and not their hashes either:
+a hashed id is still pseudonymous personal data and unbounded cardinality; emit closed roles (the
+PII sentinel's long-hex detector redacts identity hashes by design).
+
 ## Record with an annotation
 
 ```java

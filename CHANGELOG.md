@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Dual-control observations (#32): `DualControl` — `witness` action vocabulary
+  (`first_approval|second_approval|veto|expiry`), `recordGap(...)` timer with
+  `closure=completed|vetoed|expired` fed from the workflow store (never-throw, negative gaps
+  clamp), and ticket-routed reasons `veto_after_approval`/`witness_timeout`. No lifecycle state in
+  the library; pending gaps are gauges; `outcome` stays binary; roles only, never actor ids or
+  their hashes.
+
 - `outcome-metrics-test` module (#31): AssertJ-style contracts — `hasConsistentLabelSets()` (the
   test-time detector for #60), `hasOutcomeSchema(...)`, `hasSeriesCardinalityAtMost(...)`,
   `hasNoPrivacyViolations(policy)` — plus `ReasonVocabularyContracts.assertWellFormed(...)` and
