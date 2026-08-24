@@ -47,6 +47,9 @@ Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` boun
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
 Alert routing: override `OutcomeReason.alertability()` (`PAGE` default | `TICKET` | `NONE`);
 failures emit `alertability=page|ticket|none`, successes `none`; route alerts on the tag.
+Idempotency: `recordIdempotent(name, tags, work, r -> IdempotencyOutcome.APPLIED|DUPLICATE_SKIPPED)`
+tags successes; failures keep `idempotency=none`; throw `IdempotencyException(IdempotencyReason.*)`
+for conflict/stale/missing-key (never put keys or message ids in tags).
 Overflow: remap to `other`; gauge `outcome.metrics.tag_value_overflows`.
 
 ## Samples

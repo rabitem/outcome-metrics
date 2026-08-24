@@ -1,5 +1,6 @@
 package io.github.rabitem.outcomemetrics.observation;
 
+import io.github.rabitem.outcomemetrics.MetricTagValues;
 import io.github.rabitem.outcomemetrics.MetricsTags;
 import io.micrometer.common.KeyValues;
 import io.micrometer.observation.Observation;
@@ -195,6 +196,45 @@ public final class OutcomeObservations {
             context.setIntegrity(
                     Objects.requireNonNull(classifier.classify(result), "classifier must not return null"));
             context.setResultTags(MetricsTags.sanitize(resultTagger.apply(result)));
+            return result;
+        });
+    }
+
+    /**
+     * Runs an idempotency-guarded operation as an observation.
+     *
+     * <p>Successful results carry an {@code idempotency} tag with the classifier's disposition
+     * ({@code applied} or {@code duplicate_skipped}); failures carry {@code idempotency=none}, so the
+     * tag key is present on every series of the observation name (Prometheus requires consistent
+     * label sets per meter name). Idempotency key conflicts, stale replays, and missing keys are
+     * failures — throw {@link IdempotencyException} instead of classifying them as success shapes.
+     *
+     * <p>If {@code classifier} throws or returns {@code null}, the observation records a failure.
+     *
+     * @param <T>        result type
+     * @param name       observation name; must not be blank
+     * @param dimensions low-cardinality dimension tags; must not be {@code null}
+     * @param work       work to time and observe; must not be {@code null}
+     * @param classifier maps the successful result to its idempotency disposition; must not be
+     *                   {@code null}
+     * @return result from {@code work}
+     */
+    public <T> T recordIdempotent(
+            final String name,
+            final KeyValues dimensions,
+            final Supplier<T> work,
+            final IdempotencyClassifier<? super T> classifier) {
+        Objects.requireNonNull(work, "work must not be null");
+        Objects.requireNonNull(classifier, "classifier must not be null");
+        final OutcomeObservationContext context = context(dimensions);
+        context.markClassified();
+        // Preset so a failure still emits the tag key with value none, keeping label sets consistent.
+        context.setResultTags(KeyValues.of(IdempotencyOutcome.TAG_IDEMPOTENCY, MetricTagValues.NONE));
+        return observation(name, context).observe(() -> {
+            final T result = work.get();
+            final IdempotencyOutcome outcome =
+                    Objects.requireNonNull(classifier.classify(result), "classifier must not return null");
+            context.setResultTags(KeyValues.of(IdempotencyOutcome.TAG_IDEMPOTENCY, outcome.tagValue()));
             return result;
         });
     }
