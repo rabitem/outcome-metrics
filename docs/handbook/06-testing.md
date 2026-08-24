@@ -42,6 +42,16 @@ void vocabularyIsAttested() {
 Regenerate deliberately: `./mvnw test -Doutcome.metrics.attestation.update=true` rewrites the file
 so the vocabulary change lands in the pull request.
 
+## Propagation contracts (async environments)
+
+Run against your real executors to catch thread-local-propagating agents before production does —
+a propagated `OutcomeScope` makes concurrent requests coalesce into each other's dedup windows:
+
+```java
+OutcomePropagationContracts.assertScopeConfinedAcrossExecutor(myWorkerPool);
+OutcomePropagationContracts.assertDeferredSettlesAcrossExecutor(myCallbackExecutor);
+```
+
 ## Mutation gate (standard PIT, no custom mutators)
 
 Vocabulary contract tests kill standard mutations — no custom mutation engine needed:
