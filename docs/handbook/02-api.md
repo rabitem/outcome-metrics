@@ -121,6 +121,25 @@ if (!stored.payloadHash().equals(delivery.payloadHash())) {
 Idempotency keys, message ids, and dedup-store values must never become tags — only the closed
 disposition above is tag-safe.
 
+## Shared resources: attribute failures to the right owner
+
+Failures on borrowed or pooled resources are misattributed when only the consumer is tagged.
+`SharedResource` emits a fixed five-tag bundle (`resource`, `relationship`, `consumer_tier`,
+`owner_tier`, `pool`) so every relationship has the same label set:
+
+```java
+observations.record(
+    "lesson.assign",
+    SharedResource.borrowed("instructor", "starter", "enterprise").tags()
+        .and(MetricsTags.pairs("channel=web")),
+    () -> assign(lesson));
+```
+
+`owned(...)` sets `owner_tier=self`, `pooled(...)` sets `owner_tier=shared`; `pool=none` unless
+`withPool("pool_eu_1")`. Values are tiers and types — the factories throw on UUID-shaped or long-hex
+values, so a tenant id in a tag fails in your tests, not on the pager. Pool-id boundedness pairs
+with `MetricsMeterFilters.boundedTagValues(...)`.
+
 ## Record with an annotation
 
 ```java
