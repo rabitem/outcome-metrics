@@ -117,6 +117,68 @@ public final class OutcomeObservations {
         });
     }
 
+    /**
+     * Runs work as an integrity-classified observation.
+     *
+     * <p>The operation still records {@code outcome=success} when it completes without throwing;
+     * {@code classifier} additionally grades the delivered result as {@code ok}, {@code degraded} or
+     * {@code empty} on the {@code integrity} tag. This keeps quiet failures (blank documents, partial
+     * writes, swallowed downstream calls) alertable without breaking SLOs that track technical
+     * completion.
+     *
+     * <p>If {@code classifier} throws or returns {@code null}, the observation records a failure: an
+     * integrity check that silently passes would itself be a quiet failure.
+     *
+     * @param <T>        result type
+     * @param name       observation name; must not be blank
+     * @param dimensions low-cardinality dimension tags; must not be {@code null}
+     * @param work       work to time and observe; must not be {@code null}
+     * @param classifier grades the successful result's integrity; must not be {@code null}
+     * @return result from {@code work}
+     */
+    public <T> T recordClassified(
+            final String name,
+            final KeyValues dimensions,
+            final Supplier<T> work,
+            final IntegrityClassifier<? super T> classifier) {
+        return recordClassified(name, dimensions, work, classifier, result -> KeyValues.empty());
+    }
+
+    /**
+     * Runs work as an integrity-classified observation with additional result tags.
+     *
+     * <p>Combines {@link #recordClassified(String, KeyValues, Supplier, IntegrityClassifier)} with a
+     * result tagger as in {@link #record(String, KeyValues, Supplier, Function)}.
+     *
+     * @param <T>          result type
+     * @param name         observation name; must not be blank
+     * @param dimensions   low-cardinality dimension tags; must not be {@code null}
+     * @param work         work to time and observe; must not be {@code null}
+     * @param classifier   grades the successful result's integrity; must not be {@code null}
+     * @param resultTagger maps a successful result to bounded low-cardinality tags; must not be
+     *                     {@code null}
+     * @return result from {@code work}
+     */
+    public <T> T recordClassified(
+            final String name,
+            final KeyValues dimensions,
+            final Supplier<T> work,
+            final IntegrityClassifier<? super T> classifier,
+            final Function<? super T, KeyValues> resultTagger) {
+        Objects.requireNonNull(work, "work must not be null");
+        Objects.requireNonNull(classifier, "classifier must not be null");
+        Objects.requireNonNull(resultTagger, "resultTagger must not be null");
+        final OutcomeObservationContext context = context(dimensions);
+        context.markClassified();
+        return observation(name, context).observe(() -> {
+            final T result = work.get();
+            context.setIntegrity(
+                    Objects.requireNonNull(classifier.classify(result), "classifier must not return null"));
+            context.setResultTags(MetricsTags.sanitize(resultTagger.apply(result)));
+            return result;
+        });
+    }
+
     private Observation newObservation(final String name, final KeyValues dimensions) {
         return observation(name, context(dimensions));
     }
