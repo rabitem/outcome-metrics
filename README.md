@@ -107,6 +107,7 @@ Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_ov
 | SLO binding | `SloCatalog` issues `slo=<id>` tags (undeclared ids fail at wiring); info gauge proves runtime bindings |
 | Messaging fate | `recordDelivery`: `fate=processed`/`retry`/`dead_letter`/`drop` + `attempt_bucket`; lag via closed `lag_bucket` |
 | PII sentinel | Optional `TagPrivacyPolicy`: deny-listed keys + identity-shaped values redact to `redacted`; never throws |
+| Experiments | `ExperimentRegistry`: pre-registered ids + declared arms; raw flag keys collapse to `unregistered` |
 | Alert routing | `alertability` tag (`page`/`ticket`/`none`) declared per reason; unclassified failures page |
 | Idempotency | `idempotency=applied`/`duplicate_skipped` on success, `none` on failure; conflicts/stale/missing-key are failure reasons |
 | Shared resources | `SharedResource` five-tag bundle (`owned`/`borrowed`/`pooled`); factories reject UUID-shaped values |

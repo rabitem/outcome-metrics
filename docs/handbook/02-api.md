@@ -272,6 +272,29 @@ detection only sees raw values. Known false positive: `1.2.3.4` version strings 
 in reason codes is `ReasonRegistry`'s job (#24). Scrubbing runs before all other enforcement so
 raw values never reach the combination guard's memory or the registry.
 
+## Experiments: flag × outcome without combinatorial cardinality
+
+Register experiments up front (build-time cap, declared arms); runtime ids from your flag SDK
+never become tag values unless registered:
+
+```java
+ExperimentRegistry experiments = ExperimentRegistry.builder()
+    .experiment("checkout-v2")                                  // arms default control|treatment
+    .experiment("onboarding", "control", "gentle", "aggressive") // declared arms, max 6
+    .build();                                                    // > maxActive (10) fails here
+experiments.bindTo(meterRegistry);
+
+observations.record("checkout.place",
+    experiments.slice(sdk.experimentId(), sdk.variant()).and("surface", "web"),
+    () -> place(cmd));
+```
+
+Unregistered ids collapse to `experiment=unregistered, variant=unknown`; undeclared arms keep the
+id and collapse the variant — both counted on `experiment_registry.unregistered`. **Every event of
+a sliced name needs the bundle**: un-sliced traffic uses `ExperimentRegistry.none()` (label sets
+must match per meter name). For experiment × surface × reason combinatorics, pair with the
+`CombinationGuard`.
+
 ## Record with an annotation
 
 ```java

@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Experiment outcome slices (#30): `ExperimentRegistry` with build-time caps (`maxActive`,
+  declared arms ≤ 6) emits `experiment`/`variant` tags; unregistered runtime ids collapse to
+  `unregistered`/`unknown` (raw flag keys never become tag values), undeclared arms collapse the
+  variant only, both counted. `none()` bundle keeps label sets consistent for un-sliced traffic;
+  info gauge per registered experiment.
+
 - Tag PII sentinel (#29): opt-in `TagPrivacyPolicy` redacts caller-supplied tag values (keys kept)
   on deny-listed keys — matched on sanitized form — or identity-shaped values (email, UUID, JWT,
   IPv4, long hex, long digit runs), counted on `outcome.metrics.tag_privacy.redacted`. Runtime
