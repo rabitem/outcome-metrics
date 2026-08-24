@@ -21,6 +21,7 @@ public class OutcomeObservationContext extends Observation.Context {
 
     private final KeyValues dimensions;
     private KeyValues resultTags = KeyValues.empty();
+    private OutcomeIntegrity integrity = OutcomeIntegrity.OK;
     private boolean classified;
 
     /**
@@ -73,5 +74,26 @@ public class OutcomeObservationContext extends Observation.Context {
      */
     public KeyValues resultTags() {
         return resultTags;
+    }
+
+    /**
+     * Sets the integrity classification of the successful result.
+     *
+     * @param integrity integrity classification; must not be {@code null}
+     */
+    public void setIntegrity(final OutcomeIntegrity integrity) {
+        this.integrity = Objects.requireNonNull(integrity, "integrity must not be null");
+    }
+
+    /**
+     * Returns the integrity classification of the successful result.
+     *
+     * <p>Defaults to {@link OutcomeIntegrity#OK}. Only emitted for successful observations; failures
+     * carry {@code integrity=none}.
+     *
+     * @return integrity classification, never {@code null}
+     */
+    public OutcomeIntegrity integrity() {
+        return integrity;
     }
 }
