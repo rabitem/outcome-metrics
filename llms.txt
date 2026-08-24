@@ -45,6 +45,9 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+Replay deltas: `ReplayDelta.classify(contextDiffers, verdictFlipped, latencyShifted, costShifted)`
+→ `stable|context_drift|verdict_flip|latency_class_shift|cost_class_shift` (context drift voids
+the comparison); record replay runs as observations with `.tag()`; fingerprints never become tags.
 RAG grounding: `recordGrounded(name, tags, work, a -> GroundingFidelity.ALIGNED|IGNORED_EVIDENCE|
 HALLUCINATED_GAP|NO_CORPUS_NEEDED)`; failures keep `grounding=none`; async judges record their own
 evaluation observation with the `grounding` tag; retrieval_tier/citation_mode are caller dims.

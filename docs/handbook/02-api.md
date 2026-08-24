@@ -410,6 +410,30 @@ record them as their *own* evaluation observation carrying the `grounding` tag i
 the request path. Alert on `hallucinated_gap`/`ignored_evidence` rates as quality regressions and
 `no_corpus_needed` as wasted retrieval spend.
 
+## Replay deltas: let the harness accuse itself first
+
+Same fingerprint, different verdict — but only after the harness proves it reproduced the read
+context. `ReplayDelta.classify` encodes the comparison order (context drift **voids** the verdict
+comparison; then the most severe changed axis wins):
+
+```java
+ReplayDelta delta = ReplayDelta.classify(
+    !capture.readContextFingerprint().equals(replay.readContextFingerprint()),
+    !capture.verdict().equals(replay.verdict()),
+    capture.latencyClass() != replay.latencyClass(),
+    capture.costClass() != replay.costClass());
+
+observations.record("eval.replay",
+    KeyValues.of(delta.tag()).and("policy_version", policyVersion), // bounded
+    () -> persistReplayResult(replay));
+```
+
+Resolve every relative expression (windows, `latest` aliases, index versions) **once at capture**
+and replay the literals — a re-resolved expression at replay time makes `verdict_flip` a lie.
+Fingerprints (input, policy, read context — and read-set hashes) never become tags: hashes are
+pseudonymous and unbounded, and the PII sentinel redacts long hex by design; they live in the
+harness's capture store.
+
 ## Record with an annotation
 
 ```java
