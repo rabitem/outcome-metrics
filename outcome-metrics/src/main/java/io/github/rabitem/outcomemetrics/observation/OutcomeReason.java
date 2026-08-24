@@ -13,4 +13,18 @@ public interface OutcomeReason {
      * @return lower-case, snake-case-or-similar reason code, never {@code null} or blank
      */
     String code();
+
+    /**
+     * Returns how failures with this reason should be routed by alerting.
+     *
+     * <p>Defaults to {@link Alertability#PAGE}: a reason is treated as actionable until its author
+     * explicitly downgrades it. Override for expected failures such as business declines or client
+     * aborts.
+     *
+     * @return alertability level, never {@code null}; a {@code null} return is treated as
+     * {@link Alertability#PAGE}
+     */
+    default Alertability alertability() {
+        return Alertability.PAGE;
+    }
 }

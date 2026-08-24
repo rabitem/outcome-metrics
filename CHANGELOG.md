@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Alertability ladder on `OutcomeReason` (#20): reasons declare routing via
+  `alertability()` (`PAGE` default, `TICKET`, `NONE`); every observation emits an `alertability`
+  tag (`page`/`ticket`/`none`, success → `none`). Fail-loud: unclassified failures and broken
+  implementations page. Derived from the reason object, so budget-suppressed `reason=other` keeps
+  its level. Alertmanager routing examples in the handbook.
+
 - Operator-expandable reason cardinality budget (#19): optional `ReasonBudget` admits the first N
   distinct failure reason codes per observation name (rest emit as `other` with a suppression
   counter); `expand()` restores full detail at runtime — including previously suppressed codes —
