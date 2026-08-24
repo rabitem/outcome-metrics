@@ -330,6 +330,59 @@ public final class OutcomeObservations {
         }
     }
 
+    /**
+     * Runs a resilient (internally retrying) call as one observation with a retry-shadow summary.
+     *
+     * <p>The retry loop stays the caller's (Resilience4j, custom); {@code shadow} is invoked once
+     * when the call completes — on success <em>and</em> failure, because retry depth and dominant
+     * reason matter most when attempt N also failed — and its three closed tags ride this series
+     * ({@code attempt_bucket}, {@code dominant_reason}, {@code shadow_cost}; presets {@code unknown}).
+     *
+     * <p>The shadow supplier summarizes telemetry, not the business result: unlike the success-path
+     * classifiers it never fails the observation — a {@code null} return or a throw leaves the
+     * {@code unknown} presets, and on the failure path the original exception propagates untouched.
+     *
+     * @param <T>    result type
+     * @param name   observation name; must not be blank
+     * @param dims   low-cardinality dimension tags; must not be {@code null}
+     * @param work   resilient call to time and observe; must not be {@code null}
+     * @param shadow supplies the retry summary at completion; must not be {@code null}
+     * @return result from {@code work}
+     */
+    public <T> T recordResilient(
+            final String name,
+            final KeyValues dims,
+            final Supplier<T> work,
+            final Supplier<RetryShadow> shadow) {
+        Objects.requireNonNull(work, "work must not be null");
+        Objects.requireNonNull(shadow, "shadow must not be null");
+        final OutcomeObservationContext context = context(dims);
+        context.markClassified();
+        context.setResultTags(RetryShadow.unknownTags());
+        try {
+            return run(name, context, () -> {
+                final T result = work.get();
+                applyShadow(context, shadow);
+                return result;
+            }, error -> applyShadow(context, shadow));
+        } catch (final RuntimeException | Error e) {
+            throw e;
+        } catch (final Throwable t) {
+            throw new IllegalStateException("supplier threw a checked throwable", t);
+        }
+    }
+
+    private static void applyShadow(final OutcomeObservationContext context, final Supplier<RetryShadow> shadow) {
+        try {
+            final RetryShadow summary = shadow.get();
+            if (summary != null) {
+                context.setResultTags(summary.tags());
+            }
+        } catch (final RuntimeException | Error ignored) {
+            // Summarizing telemetry must not fail the observation or mask the original exception.
+        }
+    }
+
     private <T> T recordDeclaredResultTag(
             final String name,
             final KeyValues dimensions,

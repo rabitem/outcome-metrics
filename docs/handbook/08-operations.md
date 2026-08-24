@@ -72,6 +72,7 @@ routes:
 | `resolution=returned`/`adjusted` windows rise | Rail disagreeing with local ledger (returns, adjudication drift) |
 | `break_glass=activation` rate > 0 | Every emergency override is an alertable event — notify on the tag rate |
 | `verdict=unjustified` reviews | Break-glass misuse found by review — follow up outside metrics |
+| `shadow_cost=dominant` successes rise | Green dashboards hiding retry burn (quota, latency, capacity) |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Retention classes: two TTLs, one instrumentation

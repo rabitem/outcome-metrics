@@ -365,6 +365,29 @@ identifiers — resource classes and verdicts only (the PII sentinel redacts ide
 **Operational metrics are not a legal audit trail**: the WORM audit is a different system, and
 dashboards must never be offered to an auditor as evidence.
 
+## Retry shadow: the cost hidden behind one green outcome
+
+A resilient call succeeds on attempt N; attempts 1..N−1 burned latency and quota. Keep your retry
+loop (Resilience4j, custom) and supply the summary at completion — on failure too, where depth and
+dominant reason matter most:
+
+```java
+AtomicInteger attempts = new AtomicInteger();
+List<OutcomeReason> shadowReasons = new ArrayList<>();
+
+return observations.recordResilient("agent.tool_call", KeyValues.of("tool", "search"),
+    () -> retry.executeSupplier(() -> { attempts.incrementAndGet(); return call(); }),
+    () -> RetryShadow.of(attempts.get(), dominant(shadowReasons),
+        stopwatch.shadowTime(), stopwatch.totalTime()));
+```
+
+Three closed tags ride the same series (never parallel meters): `attempt_bucket` (shared with
+message deliveries), `dominant_reason` (typed `OutcomeReason` — closed by construction), and
+`shadow_cost=none|minor|dominant`. First-try successes use `RetryShadow.firstTry()` so label sets
+stay consistent. A misbehaving summary supplier leaves `unknown` presets and never masks the
+original exception. `occurrence` (#18) dedups repeated observations; retry shadow summarizes
+attempts inside one — complementary.
+
 ## Record with an annotation
 
 ```java

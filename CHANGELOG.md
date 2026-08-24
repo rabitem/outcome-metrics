@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Retry shadow summaries (#36): `recordResilient(...)` attaches `attempt_bucket` (shared with
+  #28), typed `dominant_reason`, and `shadow_cost=none|minor|dominant` to the one existing series —
+  on success and on final failure (the case that needs it most). No ledger: the caller's resilience
+  wrapper supplies the summary at completion; a misbehaving supplier leaves `unknown` presets and
+  never masks the original exception.
+
 - Retention-class routing (#35): closed `retention=ops|audit` vocabulary (`RetentionClass`) and
   prebuilt `RetentionFilters.auditOnly()`/`excludeAudit()` for `CompositeMeterRegistry` children —
   stock Micrometer does the routing; untagged observations are ops-class by default; documented as
