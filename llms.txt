@@ -45,6 +45,9 @@ Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeat
 `occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
 Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
 failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
+Plugins: host exports the API (provided scope, parent-first delegation); a duplicated library copy
+makes `instanceof OutcomeReasonSource` fail → `reason=unknown`; diagnose with
+`MetricTagValues.isForeignReasonSource(error)`. Native: class-literal registration is reachable.
 Virtual threads: `OutcomeScope` is confined per virtual thread (JEP 444) — no carrier bleed, no
 ScopedValue needed; pinning = execution cost, observe via `micrometer-java21` VirtualThreadMetrics.
 Async terminals: `observations.startDeferred(name, dims)` → `succeed()|fail(t)|cancel()` (first

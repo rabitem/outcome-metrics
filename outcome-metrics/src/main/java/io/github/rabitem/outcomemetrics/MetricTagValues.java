@@ -79,6 +79,44 @@ public final class MetricTagValues {
     }
 
     /**
+     * Diagnoses the duplicated-interface misconfiguration behind unexpected {@code reason=unknown}.
+     *
+     * <p>When a plugin ships its own copy of this library, its exceptions implement a
+     * <em>different</em> {@code OutcomeReasonSource} class of the same name, {@code instanceof}
+     * fails, and reasons silently degrade to {@code unknown}. This diagnostic walks the error's
+     * type hierarchy for an interface named like {@code OutcomeReasonSource} that is not the one
+     * this classloader sees. Use it in tests or error handlers — deliberately not on the hot path;
+     * the fix is deployment hygiene: export the API package from the host, plugins depend on it in
+     * provided scope, parent-first delegation for {@code io.github.rabitem.outcomemetrics.*}.
+     *
+     * @param error throwable to diagnose; may be {@code null}
+     * @return {@code true} if a foreign copy of {@code OutcomeReasonSource} is implemented anywhere
+     * on the cause chain
+     */
+    public static boolean isForeignReasonSource(final Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (implementsForeignSource(current.getClass())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static boolean implementsForeignSource(final Class<?> type) {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            for (final Class<?> implemented : current.getInterfaces()) {
+                if (implemented.getName().equals(OutcomeReasonSource.class.getName())
+                        && implemented != OutcomeReasonSource.class) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Derives a snake-case code from an exception's simple name.
      *
      * <p>Opt-in helper for closed exception vocabularies. Prefer {@link OutcomeReasonSource} for

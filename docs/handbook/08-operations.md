@@ -112,7 +112,8 @@ dashboards are never audit evidence).
 
 1. Metrics missing → Micrometer/Observation enabled? Kill switch on?
 2. Series explosion → check overflow gauge + recent tag changes
-3. All failures `unknown` → wire `OutcomeReasonSource`
+3. All failures `unknown` → wire `OutcomeReasonSource`; in plugin hosts, run
+   `MetricTagValues.isForeignReasonSource(error)` — a duplicated library copy degrades silently
 4. Annotation silent → proxy/CDI rules (self-call, private method)
 
 ## Sample scrapes

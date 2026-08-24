@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Foreign reason-source diagnostic (#41): `MetricTagValues.isForeignReasonSource(...)` detects the
+  duplicated-library-copy misconfiguration that silently degrades plugin reasons to `unknown`
+  (proven with a real child-first-classloader test). Classloader hygiene and GraalVM notes in the
+  handbook; the proposed federation machinery and reflect-config APT are deliberately rejected
+  (class-literal registration is reachable by construction; #64 is the CI gate).
+
 - Virtual-thread guidance and isolation proof (#40): a 2,000-virtual-thread test proves
   `OutcomeScope` is confined per virtual thread (JEP 444 — no carrier bleed), so no `ScopedValue`
   migration is needed (preview on the JDK 21 baseline); pinning is documented as execution cost
