@@ -388,6 +388,28 @@ stay consistent. A misbehaving summary supplier leaves `unknown` presets and nev
 original exception. `occurrence` (#18) dedups repeated observations; retry shadow summarizes
 attempts inside one — complementary.
 
+## Grounding: is the RAG answer backed by its evidence?
+
+`integrity` grades technical trustworthiness; `grounding` grades epistemic backing — an answer can
+be `integrity=ok` and `grounding=hallucinated_gap`, which is exactly the fleet blind spot. Your
+judge supplies the verdict; the library can't detect a hallucination:
+
+```java
+return observations.recordGrounded(
+    "rag.answer",
+    KeyValues.of("retrieval_tier", "hybrid", "citation_mode", "inline"), // your vocabularies
+    () -> pipeline.answer(query),
+    answer -> answer.citations().isEmpty()
+        ? (answer.usedRetrieval() ? GroundingFidelity.IGNORED_EVIDENCE
+                                  : GroundingFidelity.NO_CORPUS_NEEDED)
+        : GroundingFidelity.ALIGNED);
+```
+
+Failures keep `grounding=none`. Asynchronous LLM-as-judge verdicts arrive after the response —
+record them as their *own* evaluation observation carrying the `grounding` tag instead of blocking
+the request path. Alert on `hallucinated_gap`/`ignored_evidence` rates as quality regressions and
+`no_corpus_needed` as wasted retrieval spend.
+
 ## Record with an annotation
 
 ```java

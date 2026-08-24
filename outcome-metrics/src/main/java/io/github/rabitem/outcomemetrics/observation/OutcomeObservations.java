@@ -245,6 +245,34 @@ public final class OutcomeObservations {
     }
 
     /**
+     * Runs a RAG operation as a grounding-classified observation.
+     *
+     * <p>Successful results carry a {@code grounding} tag with the classifier's verdict
+     * ({@code aligned}, {@code ignored_evidence}, {@code hallucinated_gap} or
+     * {@code no_corpus_needed}); failures carry {@code grounding=none}, keeping label sets
+     * consistent per meter name. If {@code classifier} throws or returns {@code null}, the
+     * observation records a failure. Asynchronous judges record their own evaluation observation
+     * instead of using this method.
+     *
+     * @param <T>        result type
+     * @param name       observation name; must not be blank
+     * @param dimensions low-cardinality dimension tags; must not be {@code null}
+     * @param work       RAG work to time and observe; must not be {@code null}
+     * @param classifier maps the successful result to its grounding verdict; must not be {@code null}
+     * @return result from {@code work}
+     */
+    public <T> T recordGrounded(
+            final String name,
+            final KeyValues dimensions,
+            final Supplier<T> work,
+            final GroundingClassifier<? super T> classifier) {
+        Objects.requireNonNull(classifier, "classifier must not be null");
+        return recordDeclaredResultTag(name, dimensions, work, GroundingFidelity.TAG_GROUNDING,
+                result -> Objects.requireNonNull(
+                        classifier.classify(result), "classifier must not return null").tagValue());
+    }
+
+    /**
      * Runs a server-side reconciliation pass as an observation.
      *
      * <p>The dimensions automatically carry {@code phase=reconcile} (overriding any caller-supplied

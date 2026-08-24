@@ -73,6 +73,8 @@ routes:
 | `break_glass=activation` rate > 0 | Every emergency override is an alertable event — notify on the tag rate |
 | `verdict=unjustified` reviews | Break-glass misuse found by review — follow up outside metrics |
 | `shadow_cost=dominant` successes rise | Green dashboards hiding retry burn (quota, latency, capacity) |
+| `grounding=hallucinated_gap`/`ignored_evidence` rise | RAG quality regression behind successful responses |
+| `grounding=no_corpus_needed` rises | Retrieval running for answers that don't need it — wasted spend |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Retention classes: two TTLs, one instrumentation
