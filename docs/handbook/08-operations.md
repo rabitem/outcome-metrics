@@ -62,6 +62,9 @@ routes:
 | `idempotency=duplicate_skipped` ratio shifts | Redelivery storm or dedup-window change upstream |
 | `disposition=diverged` rises | Client-claimed successes not matching server state |
 | `disposition=abandoned` rises | Flows dying mid-way (app closed, sync never completed) |
+| `fate=dead_letter` rises | Poison message influx (bad producer deploy, schema drift) |
+| `fate=unknown` rises | Delivery fate classifier gaps — extend it |
+| `lag_bucket=gte_10m` with `outcome=success` | Work succeeding but far too late (silent SLA burn) |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches

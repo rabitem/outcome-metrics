@@ -214,6 +214,42 @@ The info gauge proves at runtime which SLO ids this binary instruments; alert on
 an id with no info series. `@MeasuredOutcome(tags = {"slo=..."})` also works but is not
 catalog-checked — the CI export (#64) is the check for those sites.
 
+## Messaging: delivery fate, attempts, and lag as business signals
+
+Broker binders expose lag and rates, not business fate. `recordDelivery` classifies what happens
+to a failing message and buckets the attempt:
+
+```java
+return observations.recordDelivery(
+    "order.consume",
+    KeyValues.of("priority_class", "realtime"),
+    delivery.attempt(),                       // 1-based → attempt_bucket=1|2_3|4_plus
+    () -> handler.process(delivery),
+    error -> error instanceof ValidationException
+        ? DeliveryFate.DEAD_LETTER
+        : DeliveryFate.RETRY);
+```
+
+Success → `fate=processed`; failure → the classifier's `retry`/`dead_letter`/`drop`; a
+misbehaving classifier yields `fate=unknown` and **never masks the original exception** (this
+classifier runs on an already-failed path — deliberately unlike the success-path classifiers).
+
+Outbox drain and consumer-lag SLIs are plain dimensions — no special machinery:
+
+```java
+// outbox publisher: row age at publish
+observations.record("outbox.publish",
+    KeyValues.of(MessagingTags.TAG_LAG_BUCKET, MessagingTags.lagBucket(rowAge),
+        "priority_class", "bulk"),
+    () -> publish(row));
+
+// consumer: lag at delivery × priority × outcome comes from the same two dimensions
+```
+
+`lag_bucket` is closed: `lt_1s|lt_10s|lt_1m|lt_10m|gte_10m` (strict upper bounds; negative lag
+clamps to `lt_1s`). Message ids, offsets, and partitions must never become tags — partition is an
+int no guard can recognize, so this rule is documentation and review.
+
 ## Record with an annotation
 
 ```java

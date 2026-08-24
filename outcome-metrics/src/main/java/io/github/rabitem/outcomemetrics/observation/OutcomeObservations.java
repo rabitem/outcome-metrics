@@ -1,5 +1,6 @@
 package io.github.rabitem.outcomemetrics.observation;
 
+import io.github.rabitem.outcomemetrics.MessagingTags;
 import io.github.rabitem.outcomemetrics.MetricTagValues;
 import io.github.rabitem.outcomemetrics.MetricsTags;
 import io.micrometer.common.KeyValues;
@@ -7,6 +8,7 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -278,6 +280,56 @@ public final class OutcomeObservations {
                         classifier.classify(result), "classifier must not return null").tagValue());
     }
 
+    /**
+     * Runs a message delivery attempt as an observation with fate and attempt classification.
+     *
+     * <p>Dimensions automatically carry {@code attempt_bucket} (from the 1-based {@code attempt}).
+     * Success emits {@code fate=processed}; on failure, {@code classifier} maps the error to
+     * {@code retry}, {@code dead_letter} or {@code drop}. A {@code null}-returning or throwing
+     * classifier yields {@code fate=unknown} and the original exception propagates untouched —
+     * unlike the success-path classifiers, this one must never convert one incident into two.
+     *
+     * <p>Message ids, offsets, and partitions must never appear in {@code dimensions}.
+     *
+     * @param <T>        result type
+     * @param name       observation name; must not be blank
+     * @param dimensions low-cardinality dimension tags; must not be {@code null}
+     * @param attempt    1-based delivery attempt number; below 1 emits {@code attempt_bucket=unknown}
+     * @param work       delivery work to time and observe; must not be {@code null}
+     * @param classifier maps a delivery failure to its fate; must not be {@code null}
+     * @return result from {@code work}
+     */
+    public <T> T recordDelivery(
+            final String name,
+            final KeyValues dimensions,
+            final int attempt,
+            final Supplier<T> work,
+            final DeliveryFateClassifier classifier) {
+        Objects.requireNonNull(work, "work must not be null");
+        Objects.requireNonNull(classifier, "classifier must not be null");
+        Objects.requireNonNull(dimensions, "dimensions must not be null");
+        final OutcomeObservationContext context = context(
+                dimensions.and(MessagingTags.TAG_ATTEMPT_BUCKET, MessagingTags.attemptBucket(attempt)));
+        context.markClassified();
+        context.setResultTags(KeyValues.of(DeliveryFate.TAG_FATE, MetricTagValues.UNKNOWN));
+        try {
+            return run(name, context, () -> {
+                final T result = work.get();
+                context.setResultTags(KeyValues.of(DeliveryFate.TAG_FATE, DeliveryFate.PROCESSED.tagValue()));
+                return result;
+            }, error -> {
+                final DeliveryFate fate = classifier.classify(error);
+                if (fate != null) {
+                    context.setResultTags(KeyValues.of(DeliveryFate.TAG_FATE, fate.tagValue()));
+                }
+            });
+        } catch (final RuntimeException | Error e) {
+            throw e;
+        } catch (final Throwable t) {
+            throw new IllegalStateException("supplier threw a checked throwable", t);
+        }
+    }
+
     private <T> T recordDeclaredResultTag(
             final String name,
             final KeyValues dimensions,
@@ -306,6 +358,14 @@ public final class OutcomeObservations {
      */
     private <T> T run(final String name, final OutcomeObservationContext context, final CheckedSupplier<T> work)
             throws Throwable {
+        return run(name, context, work, null);
+    }
+
+    private <T> T run(
+            final String name,
+            final OutcomeObservationContext context,
+            final CheckedSupplier<T> work,
+            final Consumer<Throwable> onError) throws Throwable {
         final Observation observation = observation(name, context);
         observation.start();
         Throwable thrown = null;
@@ -315,6 +375,13 @@ public final class OutcomeObservations {
             thrown = t;
             throw t;
         } finally {
+            if (thrown != null && onError != null) {
+                try {
+                    onError.accept(thrown);
+                } catch (final Throwable tagFailure) {
+                    // Telemetry must not mask the original business exception; presets stand.
+                }
+            }
             context.markSettled();
             if (thrown != null) {
                 observation.error(thrown);
