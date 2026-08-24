@@ -25,6 +25,7 @@ public class OutcomeObservationContext extends Observation.Context {
     private boolean classified;
     private String occurrence;
     private String reason;
+    private String alertability;
 
     /**
      * Creates a context.
@@ -131,5 +132,21 @@ public class OutcomeObservationContext extends Observation.Context {
      */
     String cachedReason() {
         return reason;
+    }
+
+    /**
+     * Caches the emitted {@code alertability} tag value, resolved together with the reason.
+     */
+    void cacheAlertability(final String alertability) {
+        this.alertability = alertability;
+    }
+
+    /**
+     * Returns the cached {@code alertability} tag value.
+     *
+     * @return cached value, or {@code null} before the convention evaluated it
+     */
+    String cachedAlertability() {
+        return alertability;
     }
 }

@@ -24,8 +24,8 @@ import java.util.Objects;
  */
 public final class OutcomeObservationConvention implements ObservationConvention<OutcomeObservationContext> {
 
-    /** Shared unbudgeted convention instance. */
-    public static final OutcomeObservationConvention INSTANCE = new OutcomeObservationConvention(null);
+    /** Shared unenforced convention instance. */
+    public static final OutcomeObservationConvention INSTANCE = new OutcomeObservationConvention(null, null);
 
     /** Outcome tag name. */
     public static final String TAG_OUTCOME = "outcome";
@@ -55,9 +55,11 @@ public final class OutcomeObservationConvention implements ObservationConvention
     public static final String OUTCOME_FAILURE = "failure";
 
     private final ReasonBudget reasonBudget;
+    private final ReasonRegistry reasonRegistry;
 
-    private OutcomeObservationConvention(final ReasonBudget reasonBudget) {
+    private OutcomeObservationConvention(final ReasonBudget reasonBudget, final ReasonRegistry reasonRegistry) {
         this.reasonBudget = reasonBudget;
+        this.reasonRegistry = reasonRegistry;
     }
 
     /**
@@ -67,8 +69,66 @@ public final class OutcomeObservationConvention implements ObservationConvention
      * @return a budgeted convention
      */
     public static OutcomeObservationConvention withReasonBudget(final ReasonBudget reasonBudget) {
-        return new OutcomeObservationConvention(
-                Objects.requireNonNull(reasonBudget, "reasonBudget must not be null"));
+        return builder().reasonBudget(reasonBudget).build();
+    }
+
+    /**
+     * Creates a convention builder.
+     *
+     * @return a new builder
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Builder composing reason enforcement.
+     *
+     * <p>Resolution order for failure reasons: registry membership first (unregistered reasons emit
+     * {@code reason=unknown} and {@code alertability=page}, consuming no budget), then budget
+     * admission (registered codes over budget emit {@code reason=other} with their declared
+     * alertability preserved).
+     *
+     * @since 0.1.0
+     */
+    public static final class Builder {
+
+        private ReasonBudget reasonBudget;
+        private ReasonRegistry reasonRegistry;
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the reason cardinality budget.
+         *
+         * @param budget budget; must not be {@code null}
+         * @return this builder
+         */
+        public Builder reasonBudget(final ReasonBudget budget) {
+            this.reasonBudget = Objects.requireNonNull(budget, "reasonBudget must not be null");
+            return this;
+        }
+
+        /**
+         * Sets the reason vocabulary registry.
+         *
+         * @param registry registry; must not be {@code null}
+         * @return this builder
+         */
+        public Builder reasonRegistry(final ReasonRegistry registry) {
+            this.reasonRegistry = Objects.requireNonNull(registry, "reasonRegistry must not be null");
+            return this;
+        }
+
+        /**
+         * Builds the convention.
+         *
+         * @return a convention with the configured enforcement
+         */
+        public OutcomeObservationConvention build() {
+            return new OutcomeObservationConvention(reasonBudget, reasonRegistry);
+        }
     }
 
     @Override
@@ -77,10 +137,11 @@ public final class OutcomeObservationConvention implements ObservationConvention
         final Throwable error = context.getError();
         final KeyValues tags;
         if (error != null) {
+            resolveFailure(context, error);
             tags = base.and(TAG_OUTCOME, OUTCOME_FAILURE)
-                    .and(TAG_REASON, failureReason(context, error))
+                    .and(TAG_REASON, context.cachedReason())
                     .and(TAG_INTEGRITY, MetricTagValues.NONE)
-                    .and(TAG_ALERTABILITY, alertability(error));
+                    .and(TAG_ALERTABILITY, context.cachedAlertability());
         } else {
             tags = base.and(TAG_OUTCOME, OUTCOME_SUCCESS)
                     .and(TAG_REASON, MetricTagValues.NONE)
@@ -90,26 +151,36 @@ public final class OutcomeObservationConvention implements ObservationConvention
         return tags.and(TAG_OCCURRENCE, occurrence(context, tags));
     }
 
-    private static String alertability(final Throwable error) {
-        // Derived from the reason object, not the emitted code: a ReasonBudget-suppressed
-        // reason=other keeps its declared alertability, so suppressed actionable failures still page.
+    /**
+     * Resolves reason and alertability in a single step so the two tags can never disagree.
+     *
+     * <p>An unregistered reason forfeits both its code and its routing downgrade: trusting the
+     * alertability of an object whose code is distrusted would let a rogue reason silence its own
+     * page. Budget suppression, by contrast, distrusts only cardinality: {@code reason=other} keeps
+     * the declared alertability.
+     */
+    private void resolveFailure(final OutcomeObservationContext context, final Throwable error) {
+        if (context.cachedReason() != null) {
+            return;
+        }
         final OutcomeReason reason = MetricTagValues.outcomeReason(error);
-        if (reason == null) {
-            return Alertability.PAGE.tagValue();
+        String code = reason == null
+                ? MetricTagValues.UNKNOWN
+                : MetricTagValues.sanitizeTagValue(reason.code());
+        Alertability alertability = reason == null ? Alertability.PAGE : reason.alertability();
+        if (alertability == null) {
+            alertability = Alertability.PAGE;
         }
-        final Alertability alertability = reason.alertability();
-        return alertability == null ? Alertability.PAGE.tagValue() : alertability.tagValue();
-    }
-
-    private String failureReason(final OutcomeObservationContext context, final Throwable error) {
-        final String cached = context.cachedReason();
-        if (cached != null) {
-            return cached;
+        if (reasonRegistry != null && !reasonRegistry.isRegistered(code)) {
+            reasonRegistry.recordRejection();
+            code = MetricTagValues.UNKNOWN;
+            alertability = Alertability.PAGE;
         }
-        final String code = MetricTagValues.reasonCode(error);
-        final String reason = reasonBudget == null ? code : reasonBudget.admit(context.getName(), code);
-        context.cacheReason(reason);
-        return reason;
+        if (reasonBudget != null) {
+            code = reasonBudget.admit(context.getName(), code);
+        }
+        context.cacheReason(code);
+        context.cacheAlertability(alertability.tagValue());
     }
 
     private static String occurrence(final OutcomeObservationContext context, final KeyValues tags) {

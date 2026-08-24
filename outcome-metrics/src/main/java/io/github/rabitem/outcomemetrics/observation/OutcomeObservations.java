@@ -45,11 +45,20 @@ public final class OutcomeObservations {
         this(observationRegistry, OutcomeObservationConvention.withReasonBudget(reasonBudget));
     }
 
-    private OutcomeObservations(
+    /**
+     * Creates an outcome observation helper with a custom-composed convention.
+     *
+     * <p>Use {@link OutcomeObservationConvention#builder()} to compose reason enforcement, for
+     * example a {@link ReasonRegistry} together with a {@link ReasonBudget}.
+     *
+     * @param observationRegistry registry to record against; must not be {@code null}
+     * @param convention          convention to tag with; must not be {@code null}
+     */
+    public OutcomeObservations(
             final ObservationRegistry observationRegistry,
             final OutcomeObservationConvention convention) {
         this.observationRegistry = Objects.requireNonNull(observationRegistry, "observationRegistry must not be null");
-        this.convention = convention;
+        this.convention = Objects.requireNonNull(convention, "convention must not be null");
     }
 
     /**

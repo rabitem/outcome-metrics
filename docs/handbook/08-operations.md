@@ -49,6 +49,7 @@ routes:
 | Integrity rate < success rate | Quiet failures: degraded/empty results behind HTTP 200 |
 | `occurrence=repeat` rises | Repeat storms inside single requests (retry loops, fan-out amplification) |
 | `reason_budget.suppressed` rises | Distinct failure codes exceed the budget — expand it or trim the vocabulary |
+| `reason_registry.rejected` rises | Code emitting reasons outside the registered vocabulary (or a rogue reason source) |
 | `reason=idempotency_conflict` | Same key, different payload: upstream producer bug (pages by default) |
 | `idempotency=duplicate_skipped` ratio shifts | Redelivery storm or dedup-window change upstream |
 | `disposition=diverged` rises | Client-claimed successes not matching server state |
