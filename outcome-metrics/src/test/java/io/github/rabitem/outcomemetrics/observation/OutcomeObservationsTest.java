@@ -264,6 +264,76 @@ class OutcomeObservationsTest {
     }
 
     @Test
+    @DisplayName("declared result tags keep label sets consistent across success and failure")
+    void declaredResultTags() {
+        final String result = outcomeObservations.record(
+                "declared.op", KeyValues.empty(), () -> "RETRY",
+                value -> KeyValues.of("result", value), "result", "region");
+        assertThatThrownBy(() -> outcomeObservations.record(
+                "declared.op", KeyValues.empty(), () -> {
+                    throw new IllegalStateException("boom");
+                }, value -> KeyValues.of("result", String.valueOf(value)), "result", "region"))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(result).isEqualTo("RETRY");
+        // success: emitted key sanitized, omitted declared key stays none
+        assertThat(meters.get("declared.op")
+                .tag("outcome", "success")
+                .tag("result", "retry")
+                .tag("region", "none")
+                .timer().count()).isEqualTo(1);
+        // failure: every declared key present as none — same label set (issue #60)
+        assertThat(meters.get("declared.op")
+                .tag("outcome", "failure")
+                .tag("result", "none")
+                .tag("region", "none")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("fails loudly when a tagger emits an undeclared key and validates declarations")
+    void declaredResultTagValidation() {
+        assertThatThrownBy(() -> outcomeObservations.record(
+                "declared.rogue", KeyValues.empty(), () -> "ok",
+                value -> KeyValues.of("sneaky", "value"), "result"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("undeclared key \"sneaky\"");
+        assertThatThrownBy(() -> outcomeObservations.record(
+                "declared.none", KeyValues.empty(), () -> "ok",
+                value -> KeyValues.empty(), new String[0]))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("declare at least one result tag key");
+        assertThatThrownBy(() -> outcomeObservations.record(
+                "declared.blank", KeyValues.empty(), () -> "ok",
+                value -> KeyValues.empty(), " "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("declared result tag key must not be blank");
+    }
+
+    @Test
+    @DisplayName("combines declared result tags with the integrity classifier")
+    void declaredClassified() {
+        assertThatThrownBy(() -> outcomeObservations.recordClassified(
+                "declared.integrity", KeyValues.empty(), () -> {
+                    throw new IllegalStateException("boom");
+                },
+                value -> OutcomeIntegrity.OK,
+                value -> KeyValues.of("result", String.valueOf(value)), "result"))
+                .isInstanceOf(IllegalStateException.class);
+        outcomeObservations.recordClassified(
+                "declared.integrity", KeyValues.empty(), () -> "PARTIAL",
+                value -> OutcomeIntegrity.DEGRADED,
+                value -> KeyValues.of("result", value), "result");
+
+        assertThat(meters.get("declared.integrity")
+                .tag("outcome", "failure").tag("result", "none").tag("integrity", "none")
+                .timer().count()).isEqualTo(1);
+        assertThat(meters.get("declared.integrity")
+                .tag("outcome", "success").tag("result", "partial").tag("integrity", "degraded")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("validates observation name and dependencies")
     void validation() {
         assertThatThrownBy(() -> outcomeObservations.record(" ", KeyValues.empty(), () -> "value"))

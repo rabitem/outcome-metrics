@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Classified result tags now support a declared key schema (#60): new
+  `record(..., resultTagger, String... declaredResultTagKeys)` and the matching `recordClassified`
+  overload preset every declared key to `none`, so failures emit the same label set as successes
+  (Prometheus rejects inconsistent label sets per meter name). A tagger emitting an undeclared key
+  fails loudly. The undeclared tagger overloads are deprecated; samples migrated.
+
 - Observation conventions are consulted by Micrometer at start as well as stop; side-effectful
   tagging now acts only on settled state. Fixes `occurrence` deduplication keying on provisional
   start-time tags (a failure could be miscounted as a repeat of a prior success of the same
