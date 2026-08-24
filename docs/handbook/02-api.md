@@ -168,6 +168,33 @@ stays binary. Failures keep both keys (`phase=reconcile`, `disposition=none`). A
 `disposition=diverged|abandoned` rates. Intent ids, device ids, and sync batch ids never become
 tags.
 
+## Combination guard: rare tuples stay anonymous until they aren't rare
+
+Per-tag limits miss rare combinations (region × product × reason) that can point at tiny cohorts.
+Guarded key combinations emit `other` until they show sustained volume — `minSupport` events within
+one tumbling window; reveal is one-way per process:
+
+```java
+CombinationGuard guard = CombinationGuard.builder()
+    .keys("region", "product")
+    .minSupport(20).window(Duration.ofMinutes(15))
+    .namePrefixes("booking.")
+    .build();
+guard.bindTo(meterRegistry); // collapsed-event counter
+
+OutcomeObservations observations = new OutcomeObservations(
+    observationRegistry,
+    OutcomeObservationConvention.builder().combinationGuard(guard).build());
+```
+
+**This is not k-anonymity** — support counts events, not individuals; one chatty user crosses any
+threshold. It reduces re-identification risk as defense-in-depth in front of backend controls.
+Unlike the signal guards (`OutcomeScope`, `ReasonBudget`), which fail open, this privacy guard
+fails **closed**: over the tuple cap, combinations stay collapsed. Guarding `outcome` or
+`alertability` is rejected at build time. Slow-trickling tuples that never reach `minSupport`
+within a window never reveal; the first `minSupport − 1` events stay in the collapsed series
+(counters are monotonic).
+
 ## Record with an annotation
 
 ```java

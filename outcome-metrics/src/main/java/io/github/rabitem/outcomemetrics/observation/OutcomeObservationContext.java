@@ -26,6 +26,8 @@ public class OutcomeObservationContext extends Observation.Context {
     private String occurrence;
     private String reason;
     private String alertability;
+    private KeyValues guardedTags;
+    private boolean settled;
 
     /**
      * Creates a context.
@@ -148,5 +150,41 @@ public class OutcomeObservationContext extends Observation.Context {
      */
     String cachedAlertability() {
         return alertability;
+    }
+
+    /**
+     * Caches the combination-guarded tags so repeated convention lookups cannot double-count
+     * support.
+     */
+    void cacheGuardedTags(final KeyValues guardedTags) {
+        this.guardedTags = guardedTags;
+    }
+
+    /**
+     * Returns the cached combination-guarded tags.
+     *
+     * @return cached tags, or {@code null} before the convention evaluated them
+     */
+    KeyValues cachedGuardedTags() {
+        return guardedTags;
+    }
+
+    /**
+     * Marks the observation state final (work finished, error recorded if any).
+     *
+     * <p>Micrometer consults the convention at start as well as stop; side-effectful tagging must
+     * only act once the state is settled.
+     */
+    void markSettled() {
+        this.settled = true;
+    }
+
+    /**
+     * Returns whether the observation state is final.
+     *
+     * @return {@code true} once work has finished and any error is recorded
+     */
+    boolean isSettled() {
+        return settled;
     }
 }

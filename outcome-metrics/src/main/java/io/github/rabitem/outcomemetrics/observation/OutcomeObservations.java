@@ -70,7 +70,10 @@ public final class OutcomeObservations {
      */
     public void record(final String name, final KeyValues dimensions, final Runnable work) {
         Objects.requireNonNull(work, "work must not be null");
-        newObservation(name, dimensions).observe(work);
+        runUnchecked(name, context(dimensions), () -> {
+            work.run();
+            return null;
+        });
     }
 
     /**
@@ -84,7 +87,7 @@ public final class OutcomeObservations {
      */
     public <T> T record(final String name, final KeyValues dimensions, final Supplier<T> work) {
         Objects.requireNonNull(work, "work must not be null");
-        return newObservation(name, dimensions).observe(work);
+        return runUnchecked(name, context(dimensions), work);
     }
 
     /**
@@ -117,7 +120,7 @@ public final class OutcomeObservations {
     public <T> T recordChecked(final String name, final KeyValues dimensions, final CheckedSupplier<T> work)
             throws Throwable {
         Objects.requireNonNull(work, "work must not be null");
-        return newObservation(name, dimensions).observeChecked(work::get);
+        return run(name, context(dimensions), work);
     }
 
     /**
@@ -140,7 +143,7 @@ public final class OutcomeObservations {
         Objects.requireNonNull(resultTagger, "resultTagger must not be null");
         final OutcomeObservationContext context = context(dimensions);
         context.markClassified();
-        return observation(name, context).observe(() -> {
+        return runUnchecked(name, context, () -> {
             final T result = work.get();
             context.setResultTags(MetricsTags.sanitize(resultTagger.apply(result)));
             return result;
@@ -200,7 +203,7 @@ public final class OutcomeObservations {
         Objects.requireNonNull(resultTagger, "resultTagger must not be null");
         final OutcomeObservationContext context = context(dimensions);
         context.markClassified();
-        return observation(name, context).observe(() -> {
+        return runUnchecked(name, context, () -> {
             final T result = work.get();
             context.setIntegrity(
                     Objects.requireNonNull(classifier.classify(result), "classifier must not return null"));
@@ -286,15 +289,48 @@ public final class OutcomeObservations {
         context.markClassified();
         // Preset so a failure still emits the tag key with value none, keeping label sets consistent.
         context.setResultTags(KeyValues.of(tagKey, MetricTagValues.NONE));
-        return observation(name, context).observe(() -> {
+        return runUnchecked(name, context, () -> {
             final T result = work.get();
             context.setResultTags(KeyValues.of(tagKey, successValue.apply(result)));
             return result;
         });
     }
 
-    private Observation newObservation(final String name, final KeyValues dimensions) {
-        return observation(name, context(dimensions));
+    /**
+     * Starts, scopes, and stops the observation, marking the context settled before error and stop.
+     *
+     * <p>Micrometer consults the convention at {@code start()} as well as {@code stop()}, with
+     * provisional state (no error yet, preset result tags). Side-effectful tagging — occurrence
+     * marking, combination-guard support counting — must only act on the settled, final state; the
+     * convention returns provisional values for unsettled consultations.
+     */
+    private <T> T run(final String name, final OutcomeObservationContext context, final CheckedSupplier<T> work)
+            throws Throwable {
+        final Observation observation = observation(name, context);
+        observation.start();
+        Throwable thrown = null;
+        try (Observation.Scope ignored = observation.openScope()) {
+            return work.get();
+        } catch (final Throwable t) {
+            thrown = t;
+            throw t;
+        } finally {
+            context.markSettled();
+            if (thrown != null) {
+                observation.error(thrown);
+            }
+            observation.stop();
+        }
+    }
+
+    private <T> T runUnchecked(final String name, final OutcomeObservationContext context, final Supplier<T> work) {
+        try {
+            return run(name, context, work::get);
+        } catch (final RuntimeException | Error e) {
+            throw e;
+        } catch (final Throwable t) {
+            throw new IllegalStateException("supplier threw a checked throwable", t);
+        }
     }
 
     private Observation observation(final String name, final OutcomeObservationContext context) {

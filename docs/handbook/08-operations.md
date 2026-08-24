@@ -50,6 +50,7 @@ routes:
 | `occurrence=repeat` rises | Repeat storms inside single requests (retry loops, fan-out amplification) |
 | `reason_budget.suppressed` rises | Distinct failure codes exceed the budget — expand it or trim the vocabulary |
 | `reason_registry.rejected` rises | Code emitting reasons outside the registered vocabulary (or a rogue reason source) |
+| `combination_guard.collapsed` high & steady | Guard scope too broad or `minSupport` too high for real traffic |
 | `reason=idempotency_conflict` | Same key, different payload: upstream producer bug (pages by default) |
 | `idempotency=duplicate_skipped` ratio shifts | Redelivery storm or dedup-window change upstream |
 | `disposition=diverged` rises | Client-claimed successes not matching server state |

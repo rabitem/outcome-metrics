@@ -25,7 +25,8 @@ import java.util.Objects;
 public final class OutcomeObservationConvention implements ObservationConvention<OutcomeObservationContext> {
 
     /** Shared unenforced convention instance. */
-    public static final OutcomeObservationConvention INSTANCE = new OutcomeObservationConvention(null, null);
+    public static final OutcomeObservationConvention INSTANCE =
+            new OutcomeObservationConvention(null, null, null);
 
     /** Outcome tag name. */
     public static final String TAG_OUTCOME = "outcome";
@@ -56,10 +57,15 @@ public final class OutcomeObservationConvention implements ObservationConvention
 
     private final ReasonBudget reasonBudget;
     private final ReasonRegistry reasonRegistry;
+    private final CombinationGuard combinationGuard;
 
-    private OutcomeObservationConvention(final ReasonBudget reasonBudget, final ReasonRegistry reasonRegistry) {
+    private OutcomeObservationConvention(
+            final ReasonBudget reasonBudget,
+            final ReasonRegistry reasonRegistry,
+            final CombinationGuard combinationGuard) {
         this.reasonBudget = reasonBudget;
         this.reasonRegistry = reasonRegistry;
+        this.combinationGuard = combinationGuard;
     }
 
     /**
@@ -95,8 +101,20 @@ public final class OutcomeObservationConvention implements ObservationConvention
 
         private ReasonBudget reasonBudget;
         private ReasonRegistry reasonRegistry;
+        private CombinationGuard combinationGuard;
 
         private Builder() {
+        }
+
+        /**
+         * Sets the combination cardinality guard applied to assembled tags.
+         *
+         * @param guard guard; must not be {@code null}
+         * @return this builder
+         */
+        public Builder combinationGuard(final CombinationGuard guard) {
+            this.combinationGuard = Objects.requireNonNull(guard, "combinationGuard must not be null");
+            return this;
         }
 
         /**
@@ -127,7 +145,7 @@ public final class OutcomeObservationConvention implements ObservationConvention
          * @return a convention with the configured enforcement
          */
         public OutcomeObservationConvention build() {
-            return new OutcomeObservationConvention(reasonBudget, reasonRegistry);
+            return new OutcomeObservationConvention(reasonBudget, reasonRegistry, combinationGuard);
         }
     }
 
@@ -148,7 +166,30 @@ public final class OutcomeObservationConvention implements ObservationConvention
                     .and(TAG_INTEGRITY, context.integrity().tagValue())
                     .and(TAG_ALERTABILITY, MetricTagValues.NONE);
         }
-        return tags.and(TAG_OCCURRENCE, occurrence(context, tags));
+        final KeyValues guarded = guardedTags(context, tags);
+        return guarded.and(TAG_OCCURRENCE, occurrence(context, guarded));
+    }
+
+    /**
+     * Applies the combination guard exactly once per observation (support must not double-count on
+     * repeated convention consultation); occurrence then dedups on the emitted, possibly collapsed,
+     * values.
+     */
+    private KeyValues guardedTags(final OutcomeObservationContext context, final KeyValues tags) {
+        if (combinationGuard == null) {
+            return tags;
+        }
+        KeyValues guarded = context.cachedGuardedTags();
+        if (guarded == null) {
+            if (!context.isSettled()) {
+                // Provisional consultation: collapse without counting support (fail closed),
+                // no caching — the settled consultation counts once against the final tuple.
+                return combinationGuard.applyProvisional(context.getName(), tags);
+            }
+            guarded = combinationGuard.apply(context.getName(), tags);
+            context.cacheGuardedTags(guarded);
+        }
+        return guarded;
     }
 
     /**
@@ -187,6 +228,11 @@ public final class OutcomeObservationConvention implements ObservationConvention
         final String cached = context.cachedOccurrence();
         if (cached != null) {
             return cached;
+        }
+        if (!context.isSettled()) {
+            // Provisional consultation (Micrometer consults at start too): no scope side effects,
+            // no caching — the settled consultation decides on the final series identity.
+            return OCCURRENCE_FIRST;
         }
         final OutcomeScope scope = OutcomeScope.current();
         final String occurrence = scope == null || scope.markFirst(seriesKey(context.getName(), tags))

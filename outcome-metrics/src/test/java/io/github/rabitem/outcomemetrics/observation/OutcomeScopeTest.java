@@ -126,6 +126,26 @@ class OutcomeScopeTest {
     }
 
     @Test
+    @DisplayName("does not coalesce a failure with a prior success of the same operation")
+    void successAndFailureAreDistinctSeries() {
+        try (OutcomeScope scope = OutcomeScope.open()) {
+            outcomeObservations.record("scope.mixed", KeyValues.empty(), () -> {
+            });
+            assertThatThrownBy(() -> outcomeObservations.record("scope.mixed", KeyValues.empty(), () -> {
+                throw new IllegalStateException("boom");
+            })).isInstanceOf(IllegalStateException.class);
+        }
+
+        // Occurrence keys on the settled series identity: outcome differs, so both are first.
+        assertThat(meters.get("scope.mixed")
+                .tag("outcome", "success").tag("occurrence", "first")
+                .timer().count()).isEqualTo(1);
+        assertThat(meters.get("scope.mixed")
+                .tag("outcome", "failure").tag("occurrence", "first")
+                .timer().count()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("close is idempotent and tolerates out-of-order closes")
     void closeIsDefensive() {
         final OutcomeScope outer = OutcomeScope.open();

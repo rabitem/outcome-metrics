@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Observation conventions are consulted by Micrometer at start as well as stop; side-effectful
+  tagging now acts only on settled state. Fixes `occurrence` deduplication keying on provisional
+  start-time tags (a failure could be miscounted as a repeat of a prior success of the same
+  operation within an `OutcomeScope`).
+
 ### Added
+
+- Combination cardinality guard (#26): optional `CombinationGuard` collapses rare guarded-tag
+  combinations to `other` until they show `minSupport` events within one tumbling window; reveal
+  is one-way per process, over-cap tuples fail closed, guarding `outcome`/`alertability` is
+  rejected, collapsed events counted on `outcome.metrics.combination_guard.collapsed`.
+  Documented as re-identification risk reduction, not k-anonymity.
 
 - Opt-in `outcome-metrics-processor` module (#25): compile-time validation of `@MeasuredOutcome`
   constants — malformed tag pairs, blank keys/values, and unresolvable observation names are build
