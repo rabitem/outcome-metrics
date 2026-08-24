@@ -2,6 +2,48 @@
 
 Assert against `MeterRegistry` in-process. Do not scrape Prometheus in unit tests.
 
+## Contracts: outcome-metrics-test
+
+Add `outcome-metrics-test` (test scope) for the contracts plain assertions can't express:
+
+```java
+import static io.github.rabitem.outcomemetrics.test.OutcomeMetricsAssertions.assertThatOutcomes;
+
+assertThatOutcomes(meterRegistry)
+    .hasConsistentLabelSets()                       // the #60 detector: Prometheus rejects drift in prod
+    .hasOutcomeSchema("order.place")                // all five schema tags present
+    .hasSeriesCardinalityAtMost("order.place", 24)  // budget at the assertion site, no annotation magic
+    .hasNoPrivacyViolations(TagPrivacyPolicy.saasDefaults());
+
+ReasonVocabularyContracts.assertWellFormed(PaymentReasons.class); // codes stable, unique, routed
+```
+
+Optional ArchUnit rules (add `com.tngtech.archunit` yourself — the dependency is optional):
+
+```java
+OutcomeArchRules.outcomeReasonsAreEnums().check(classes);            // opt-in strictness; blind to lambdas
+OutcomeArchRules.observationsOnlyFrom("com.acme.metrics..").check(classes);
+```
+
+## Mutation gate (standard PIT, no custom mutators)
+
+Vocabulary contract tests kill standard mutations — no custom mutation engine needed:
+
+```xml
+<plugin>
+    <groupId>org.pitest</groupId>
+    <artifactId>pitest-maven</artifactId>
+    <configuration>
+        <targetClasses><param>com.acme.reasons.*</param></targetClasses>
+        <mutators><mutator>EMPTY_RETURNS</mutator><mutator>NULL_RETURNS</mutator></mutators>
+        <mutationThreshold>100</mutationThreshold>
+    </configuration>
+</plugin>
+```
+
+An `EMPTY_RETURNS` mutation on `code()` or a `NULL_RETURNS` on `alertability()` dies against
+`ReasonVocabularyContracts.assertWellFormed(...)`.
+
 ## Spring
 
 ```java
