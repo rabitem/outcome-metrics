@@ -69,6 +69,7 @@ routes:
 | `experiment_registry.unregistered` rises | Flag SDK emitting ids/arms the registry doesn't declare |
 | `closure=expired` gap timers rise | Dual-control approvals dying unwitnessed — process, not outage |
 | `reason=veto_after_approval` | The four-eyes control caught something after first approval — review it |
+| `resolution=returned`/`adjusted` windows rise | Rail disagreeing with local ledger (returns, adjudication drift) |
 | `tag_value_overflows` rises | New unbounded tag values or limit too tight |
 
 ## Kill switches

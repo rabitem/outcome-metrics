@@ -1,10 +1,8 @@
 package io.github.rabitem.outcomemetrics.observation;
 
-import io.github.rabitem.outcomemetrics.MetricsTags;
 import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 
 import java.time.Duration;
 
@@ -58,15 +56,8 @@ public final class DualControl {
             final KeyValues dimensions,
             final Duration gap,
             final GapClosure closure) {
-        if (meterRegistry == null || name == null || name.isBlank() || gap == null || closure == null) {
-            return;
-        }
-        final Timer.Builder timer = Timer.builder(name.strip())
-                .tag(TAG_CLOSURE, closure.tagValue());
-        for (final KeyValue dimension : MetricsTags.sanitize(dimensions)) {
-            timer.tag(dimension.getKey(), dimension.getValue());
-        }
-        timer.register(meterRegistry).record(gap.isNegative() ? Duration.ZERO : gap);
+        SuppliedDurationTimers.record(meterRegistry, name, dimensions, gap,
+                TAG_CLOSURE, closure == null ? null : closure.tagValue());
     }
 
     /**

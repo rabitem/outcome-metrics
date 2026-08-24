@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Rail divergence windows (#33): `RailDivergence.recordWindow(...)` records store-computed
+  divergence durations with `resolution=converged|returned|adjusted|written_off` (never-throw,
+  clock-skew clamp; shared supplied-duration mechanics with #32). No handle state in the library;
+  local/rail state pairs stay caller vocabularies; pairs with `recordIdempotent` webhook handling.
+
 - Dual-control observations (#32): `DualControl` — `witness` action vocabulary
   (`first_approval|second_approval|veto|expiry`), `recordGap(...)` timer with
   `closure=completed|vetoed|expired` fed from the workflow store (never-throw, negative gaps
