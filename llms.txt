@@ -52,6 +52,9 @@ tags successes; failures keep `idempotency=none`; throw `IdempotencyException(Id
 for conflict/stale/missing-key (never put keys or message ids in tags).
 Shared resources: `SharedResource.owned|borrowed|pooled(type, tiers...).withPool(id).tags()` —
 five fixed tags (`resource`,`relationship`,`consumer_tier`,`owner_tier`,`pool`); UUIDs rejected.
+Offline sync: tag phases `OutcomePhase.INTENT|COMMIT.tag()`; `recordReconciliation(name, tags,
+work, r -> ReconcileDisposition.CONFIRMED|DIVERGED|ABANDONED|DEFERRED)` adds `phase=reconcile`;
+failures keep `disposition=none`; intent ids never become tags.
 Overflow: remap to `other`; gauge `outcome.metrics.tag_value_overflows`.
 
 ## Samples

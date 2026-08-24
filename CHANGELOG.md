@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Intent–commit–reconcile vocabulary (#23): `OutcomePhase` (`phase=intent|commit|reconcile`) and
+  `recordReconciliation(...)` classifying findings as `disposition=confirmed|diverged|abandoned|
+  deferred` (failures keep `disposition=none`; `phase=reconcile` added automatically). Abandonment
+  is a reconcile finding, not a new outcome value — `outcome` stays binary.
+
 - Shared-resource attribution tags (#22): `SharedResource.owned|borrowed|pooled(...)` emits a fixed
   five-tag bundle (`resource`, `relationship`, `consumer_tier`, `owner_tier`, `pool`) with
   consistent label sets per relationship (`owner_tier=self`/`shared`, `pool=none` defaults);
