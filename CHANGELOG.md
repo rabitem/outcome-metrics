@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Outcome propagation contracts (#72): `OutcomePropagationContracts` in `outcome-metrics-test`
+  verifies the documented async semantics against real executors — scope confinement (a
+  thread-local-propagating agent or same-thread executor fails with guidance: propagated scopes
+  corrupt occurrence-filtered SLIs) and cross-thread `DeferredOutcome` settlement (#39).
+
 - Enforcement from configuration in both frameworks (#57): `outcome.metrics.reason-budget.*`,
   `reason-registry.codes`, `combination-guard.*`, and `privacy.*` compose the convention pipeline
   in the Spring starter and the Quarkus extension without code. User-defined beans take precedence;
