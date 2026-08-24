@@ -434,6 +434,36 @@ Fingerprints (input, policy, read context — and read-set hashes) never become 
 pseudonymous and unbounded, and the PII sentinel redacts long hex by design; they live in the
 harness's capture store.
 
+## Async: bind outcomes to the terminal signal, not the assembly
+
+Wrapping a `Mono` in `record(...)` times the assembly and stamps success before anything ran.
+`startDeferred` starts now and settles at the terminal — from any thread, first terminal wins:
+
+```java
+DeferredOutcome outcome = observations.startDeferred("order.async", dims);
+future.whenComplete((v, e) -> {
+    if (e instanceof CancellationException) outcome.cancel();
+    else if (e != null) outcome.fail(e);
+    else outcome.succeed();
+});
+```
+
+With `outcome-metrics-reactor`, publishers bind in one call (one observation **per subscription** —
+a retry is two attempts), and `@MeasuredOutcome` on Mono/Flux-returning Spring beans auto-binds
+when the module is on the classpath:
+
+```java
+return ReactorOutcomes.record(observations, "flow.fetch", dims, webClientCall());
+```
+
+Cancellation records `outcome=failure, reason=cancelled, alertability=none` — an expected terminal
+(client disconnect) that wakes nobody and is rate-alertable; `cancelled` is schema floor, so
+registries admit it and budgets never charge it. Deferred mode opens no `Observation.Scope`
+(terminals fire on other threads): metrics and spans work, MDC propagation is
+micrometer-context-propagation's job, and `OutcomeScope` fails open to `occurrence=first`. An
+infinite Flux is a never-stopped observation — bind at request granularity. Mutiny: #81,
+coroutines: #82.
+
 ## Record with an annotation
 
 ```java

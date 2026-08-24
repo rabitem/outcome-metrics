@@ -31,7 +31,7 @@ class ReasonRegistryTest {
     @DisplayName("passes registered codes through and includes the schema floor")
     void registeredCodesPass() {
         assertThat(reasonRegistry.codes()).containsExactly(
-                "db_down", "none", "other", "payment_declined", "unknown");
+                "cancelled", "db_down", "none", "other", "payment_declined", "unknown");
 
         final OutcomeObservations observations = observations();
         failWith(observations, "registry.op", KnownReasons.DB_DOWN);

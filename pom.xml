@@ -49,6 +49,7 @@
         <module>outcome-metrics</module>
         <module>outcome-metrics-processor</module>
         <module>outcome-metrics-test</module>
+        <module>outcome-metrics-reactor</module>
         <module>outcome-metrics-spring-boot-starter</module>
         <module>outcome-metrics-quarkus-parent</module>
     </modules>
@@ -68,6 +69,7 @@
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.23.0</mockito.version>
         <archunit.version>1.5.0</archunit.version>
+        <reactor.version>3.8.7</reactor.version>
 
         <jacoco.version>0.8.15</jacoco.version>
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
@@ -206,6 +208,17 @@
                 <groupId>com.tngtech.archunit</groupId>
                 <artifactId>archunit</artifactId>
                 <version>${archunit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-core</artifactId>
+                <version>${reactor.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-test</artifactId>
+                <version>${reactor.version}</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
