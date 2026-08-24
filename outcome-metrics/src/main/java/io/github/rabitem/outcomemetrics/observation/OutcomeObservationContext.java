@@ -23,6 +23,7 @@ public class OutcomeObservationContext extends Observation.Context {
     private KeyValues resultTags = KeyValues.empty();
     private OutcomeIntegrity integrity = OutcomeIntegrity.OK;
     private boolean classified;
+    private String occurrence;
 
     /**
      * Creates a context.
@@ -95,5 +96,22 @@ public class OutcomeObservationContext extends Observation.Context {
      */
     public OutcomeIntegrity integrity() {
         return integrity;
+    }
+
+    /**
+     * Caches the evaluated {@code occurrence} tag value so repeated convention lookups cannot
+     * re-consult the scope and flip a first occurrence into a repeat.
+     */
+    void cacheOccurrence(final String occurrence) {
+        this.occurrence = occurrence;
+    }
+
+    /**
+     * Returns the cached {@code occurrence} tag value.
+     *
+     * @return cached value, or {@code null} before the convention evaluated it
+     */
+    String cachedOccurrence() {
+        return occurrence;
     }
 }
