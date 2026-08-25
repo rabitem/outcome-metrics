@@ -13,7 +13,7 @@ opt-in classifications for idempotency, reconciliation, delivery fate, retry sha
 grounding. Cardinality, PII, and vocabulary drift are enforced in the pipeline, not in code
 review.
 
-> Status: **0.1.0-beta.3** (pre-1.0). APIs may still move.
+> Status: **0.1.0-beta.4** (pre-1.0). APIs may still move.
 
 **Docs:** [Handbook](docs/handbook/README.md) · [Samples](samples/README.md) ·
 [Benchmarks](benchmarks/README.md) · [OpenSSF Best Practices](docs/openssf-best-practices.md) ·
@@ -26,14 +26,14 @@ review.
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-spring-boot-starter</artifactId>
-  <version>0.1.0-beta.3</version>
+  <version>0.1.0-beta.4</version>
 </dependency>
 
 <!-- Quarkus 3 -->
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-quarkus</artifactId>
-  <version>0.1.0-beta.3</version>
+  <version>0.1.0-beta.4</version>
 </dependency>
 ```
 
