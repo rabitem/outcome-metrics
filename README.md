@@ -87,6 +87,15 @@ outcome:
 
 Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_overflows` counts remaps.
 
+## Overhead
+
+Indicative numbers (Apple M2 Max, JDK 25, reduced JMH iterations — see
+[benchmarks](benchmarks/README.md) for configuration and caveats): a raw Micrometer timer is
+~50 ns/op; an outcome observation is ~1.3 µs/op, dominated by the Micrometer Observation
+machinery; composing the **entire** enforcement pipeline (reason registry + budget + combination
+guard + privacy policy) adds ~0.6 µs, and an open `OutcomeScope` ~30 ns. Instrument units of work,
+not tight loops.
+
 ## Rules of the road
 
 - Instrument **units of work**, not every method.
