@@ -26,8 +26,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * a registered experiment keeps the id but collapses the variant to {@code unknown}. Both are
  * counted on {@value #UNREGISTERED_COUNTER_NAME}.
  *
- * <p>Every event of a sliced observation name must carry the bundle — Prometheus requires
- * consistent label sets per meter name — so un-sliced traffic on the same name uses {@link #none()}
+ * <p>Every event of a sliced observation name must carry the bundle — label sets must stay
+ * consistent per meter name (mixed sets crash legacy Prometheus clients and silently split
+ * aggregations on current ones) — so un-sliced traffic on the same name uses {@link #none()}
  * ({@code experiment=none, variant=none}).
  *
  * <p>Arms are declared per experiment (default {@code control|treatment}; declared arms replace the

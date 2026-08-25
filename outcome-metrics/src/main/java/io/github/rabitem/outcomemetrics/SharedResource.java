@@ -22,7 +22,8 @@ import java.util.regex.Pattern;
  * </ul>
  *
  * <p>All five tags are always present so every relationship emits the same label set per observation
- * name (Prometheus requires consistent label sets). Values are static vocabulary — tiers and types,
+ * name (mixed label sets crash legacy Prometheus clients and silently split aggregations on current
+ * ones). Values are static vocabulary — tiers and types,
  * never tenant UUIDs, user ids, or other unbounded identifiers. Factories throw on UUID-shaped or
  * long hexadecimal values at construction time, so misuse fails in tests, not on the pager.
  * Boundedness of pool ids is the meter filter's job; pair with

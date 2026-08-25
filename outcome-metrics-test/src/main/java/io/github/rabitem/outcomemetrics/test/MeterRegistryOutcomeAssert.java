@@ -20,8 +20,10 @@ import java.util.TreeSet;
  * AssertJ assertions over the meters recorded in a {@link MeterRegistry}.
  *
  * <p>The headline check is {@link #hasConsistentLabelSets()}: inconsistent label sets under one
- * meter name are rejected by Prometheus-style registries in production at the first divergence
- * (see issue #60) — this is the test-time detector.
+ * meter name corrupt the family in production (issue #60): legacy Prometheus clients reject the
+ * second registration, and the current client (Micrometer 1.13+, verified empirically) silently
+ * exposes the mixed sets — splitting {@code sum by (...)} aggregations with no error anywhere.
+ * This assertion is the only gate that fails loudly.
  *
  * @since 0.1.0
  */
@@ -54,7 +56,9 @@ public final class MeterRegistryOutcomeAssert
             if (known != null && !known.equals(keys)) {
                 failWithMessage(
                         "Meter name <%s> has inconsistent label sets: <%s> vs <%s>."
-                                + " Prometheus-style registries reject this at the first divergence.",
+                                + " Legacy Prometheus clients reject this at registration; the"
+                                + " current client exposes the mixed sets silently and splits"
+                                + " aggregations.",
                         name, known, keys);
             }
         }
