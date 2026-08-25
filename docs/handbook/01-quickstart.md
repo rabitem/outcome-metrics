@@ -66,4 +66,27 @@ Quarkus 3:
 </dependency>
 ```
 
+## Record your first outcome
+
+```java
+@Service // or @ApplicationScoped
+public class OrderService {
+
+  private final OutcomeObservations observations;
+
+  public OrderService(OutcomeObservations observations) {
+    this.observations = observations;
+  }
+
+  public Order place(String sku, String channel) {
+    return observations.of("order.place")
+        .dims(MetricsTags.pairs("channel=" + channel))
+        .record(() -> doPlace(sku, channel));
+  }
+}
+```
+
+Throw exceptions implementing `OutcomeReasonSource` to get closed `reason` codes; everything else
+maps to `reason=unknown`.
+
 Then: [API](02-api.md) · [Spring Boot](03-spring-boot.md) · [Quarkus](04-quarkus.md)

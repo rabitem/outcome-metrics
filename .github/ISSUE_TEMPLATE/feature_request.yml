@@ -6,7 +6,7 @@ body:
     id: problem
     attributes:
       label: Problem
-      description: What problem does this solve?
+      description: What problem does this solve? What goes wrong or stays invisible today?
     validations:
       required: true
   - type: textarea
@@ -17,7 +17,36 @@ body:
     validations:
       required: true
   - type: textarea
+    id: vocabulary
+    attributes:
+      label: Vocabulary & cardinality
+      description: >
+        Which closed vocabulary does this add or extend, and what bounds it? If it emits tags:
+        the exact values, and what open-ended input degrades to (`unknown`/`other`/...). This
+        library rejects unbounded tag values by design.
+    validations:
+      required: true
+  - type: textarea
+    id: failure-paths
+    attributes:
+      label: Failure paths & label sets
+      description: >
+        What happens on the failure path — does every new tag key still appear on failure series
+        (label-set consistency)? Does anything throw at emission time (it must not)? Does the
+        feature hold state across requests (the library holds no lifecycle state)?
+    validations:
+      required: true
+  - type: textarea
+    id: layer
+    attributes:
+      label: Layer
+      description: >
+        Where does this live — tag-value layer (convention), a MeterFilter (static routing only —
+        filters cannot remap-and-promote), a framework adapter, or the test module? Why that layer?
+    validations:
+      required: false
+  - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
-      description: Other approaches you evaluated
+      description: Other approaches you evaluated — including "a tag on the existing series" before any new meter

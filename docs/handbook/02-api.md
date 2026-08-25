@@ -1,54 +1,52 @@
 # API
 
-## Tags you always get
-
-| Tag | Values | When |
-|---|---|---|
-| `outcome` | `success` / `failure` | success = returned; failure = threw |
-| `reason` | `none` / `unknown` / your code | success → `none`; `OutcomeReasonSource` → your code; else `unknown` |
-| `integrity` | `ok` / `degraded` / `empty` / `none` | success → classifier verdict (default `ok`); failure → `none` |
-| `alertability` | `page` / `ticket` / `none` | failure → the reason's declared level (default `page`; unclassified → `page`); success → `none` |
-| `occurrence` | `first` / `repeat` | first observation of a series per `OutcomeScope` → `first`; identical repeats → `repeat`; no scope → always `first` |
-
-Do not put user ids, emails, UUIDs, or free text into tags or reason codes.
-
-## Record programmatically
+One entry point records a unit of work; the schema does the rest:
 
 ```java
 @Inject // or constructor-inject
 OutcomeObservations observations;
 
-return observations.record(
-    "order.place",
-    MetricsTags.pairs("channel=" + channel),
-    () -> placeOrder(cmd));
+return observations.of("order.place")
+    .dims(MetricsTags.pairs("channel=" + channel))
+    .record(() -> placeOrder(cmd));
 ```
 
-Classified success (extra result tag, still keeps `outcome`/`reason`). **Declare the result-tag
-keys** — every declared key presets to `none` on failure, so label sets stay consistent per meter
-name (#60); an undeclared emitted key fails loudly:
+Every observation becomes a Micrometer timer (and a span when tracing is configured), tagged with
+a closed, low-cardinality schema. This page covers, in order: the tag schema, the recording
+builder, failure reasons and alert routing, async terminals, request scopes, the enforcement
+pipeline, the domain vocabularies, annotations, and the hard rules that hold everything together.
 
-```java
-return observations.record(
-    "order.payment",
-    KeyValues.of("step", "classify"),
-    () -> status,
-    value -> MetricsTags.pairs("result=" + value),
-    "result");
-```
+## The tag schema
 
-The tagger overloads without declared keys are deprecated: they emit tag keys on success only,
-which corrupts the meter family the first time a classified operation fails: legacy Prometheus
-clients reject the second registration outright, and the current client (Micrometer 1.13+) silently
-exposes the mixed label sets — splitting `sum by (...)` aggregations without any error. Verified
-against a real `PrometheusMeterRegistry` in the test suite.
+Always emitted, on every observation:
 
-`MetricsTags` / result tags are sanitized (`RETRY` → `retry`).
+| Tag | Values | Semantics |
+|---|---|---|
+| `outcome` | `success` / `failure` | success = returned; failure = threw. Always binary — every other verdict rides a parallel tag |
+| `reason` | `none` / `unknown` / your code | success → `none`; `OutcomeReasonSource` → your code; unclassified → `unknown` (never the exception class name) |
+| `integrity` | `ok` / `degraded` / `empty` / `none` | success → classifier verdict (default `ok`); failure → `none` |
+| `alertability` | `page` / `ticket` / `none` | failure → the reason's declared routing (default `page`); success → `none` |
+| `occurrence` | `first` / `repeat` | first observation of a series per `OutcomeScope` → `first`; identical repeats → `repeat`; no scope → always `first` |
 
-## Compose classifications: the recording builder
+Emitted per operation when you opt in (declared, so failure series carry the key as `none`):
 
-The specialized `record*` methods are deprecated in favor of one composable entry (#92) — it is
-also the only way to put **multiple** classifications on one operation:
+| Tag | Values | Opt-in via |
+|---|---|---|
+| `idempotency` | `applied` / `duplicate_skipped` / `none` | `.idempotency(...)` |
+| `disposition` | `confirmed` / `diverged` / `abandoned` / `deferred` / `none` | `.reconciliation(...)` (adds `phase=reconcile`) |
+| `grounding` | `aligned` / `ignored_evidence` / `hallucinated_gap` / `no_corpus_needed` / `none` | `.grounding(...)` |
+| `fate` | `processed` / `retry` / `dead_letter` / `drop` / `unknown` | `.delivery(attempt, ...)` (adds `attempt_bucket`) |
+| `attempt_bucket`, `dominant_reason`, `shadow_cost` | closed buckets | `.resilient(...)` |
+| your keys | your sanitized values / `none` | `.resultTags(tagger, keys...)` |
+
+**Never in tags:** user ids, emails, order ids, UUIDs, free text, idempotency keys, message
+ids/offsets/partitions, intent/device/sync-batch ids, actor ids **or their hashes** (a hash is
+still pseudonymous personal data and unbounded cardinality), fingerprints of any kind.
+
+## The recording builder
+
+`observations.of(name)` is the API. It accumulates dimensions, composes classifications, and
+terminates in a recording call:
 
 ```java
 Payment payment = observations.of("payment.capture")
@@ -58,505 +56,68 @@ Payment payment = observations.of("payment.capture")
     .record(() -> handler.process(delivery));
 ```
 
-Give the *first* classifier an explicitly typed lambda parameter (or a method reference) so the
-result type infers; everything after follows. All established contracts hold per feature and per
-combination: declared keys preset to `none`/`unknown` so label sets stay consistent on every path,
-success-path classifiers fail loud, `delivery`/`resilient` never mask the original exception.
-Invalid combinations fail at build time: duplicate declared keys, `delivery` + `resilient` (both
-own `attempt_bucket`), and `startDeferred()` with any classification configured.
-
-## Integrity: catch quiet failures
-
-> Deprecated entry point — use `observations.of(name).integrity(...)` (#92); the semantics below are unchanged.
-
-HTTP 200 and `outcome=success` can hide a degraded business result (blank PDF, partial write). Grade
-the delivered result with an `IntegrityClassifier` — `outcome` stays `success`, so completion SLOs
-are untouched, but the quiet failure becomes alertable:
-
-```java
-return observations.recordClassified(
-    "invoice.render",
-    KeyValues.of("format", "pdf"),
-    () -> renderInvoice(order),
-    pdf -> pdf.pageCount() == 0 ? OutcomeIntegrity.EMPTY
-        : pdf.hasAllLineItems() ? OutcomeIntegrity.OK
-        : OutcomeIntegrity.DEGRADED);
-```
-
-The vocabulary is closed: `ok`, `degraded`, `empty`. A classifier that throws or returns `null`
-fails the observation — an integrity check that silently passes would itself be a quiet failure.
-An overload accepts a result tagger as well.
-
-## Scopes: keep repeat storms out of SLIs
-
-One downstream timeout in a request can emit many identical failure observations and inflate SLI
-counters. Open an `OutcomeScope` per unit of work; the first observation of each series is tagged
-`occurrence=first`, identical repeats `occurrence=repeat`:
-
-```java
-try (OutcomeScope scope = OutcomeScope.open()) {
-    handleRequest(); // any records inside, including @MeasuredOutcome methods
-}
-```
-
-Nothing is dropped — timers, spans and totals keep every event; SLI queries filter
-`occurrence="first"`. Deduplication keys on the full series identity (name + all tags), applies
-symmetrically to successes and failures, and fails open: no scope, another thread, or more than
-1024 distinct series per scope → `first`. Scopes are thread-confined (Reactor/coroutines: #39) and
-nest as a stack. Framework modules auto-opening scopes per HTTP request: #54.
-
-## Reason budget: bounded codes, expandable during incidents
-
-Bound how many distinct failure `reason` codes each observation name may emit; the rest show as
-`other` and count on a suppression counter. During an incident, expand at runtime — effective on the
-next event, **including codes that were suppressed before**:
-
-```java
-ReasonBudget budget = new ReasonBudget(8, 64); // collapsed, expanded
-budget.bindTo(meterRegistry); // 0/1 mode gauge + suppression counter
-OutcomeObservations observations = new OutcomeObservations(observationRegistry, budget);
-
-budget.expand();   // incident: full detail from the next event on
-budget.collapse(); // afterwards: new codes bounded again; admitted codes keep reporting
-```
-
-Expansion/collapse is deliberately manual — wire it to your runbook or an alert webhook, not to an
-in-process burn-rate copy. `none`/`unknown`/`other` never consume budget. If you also configure a
-bounded tag-value filter on `reason`, keep its bound at or above the expanded limit; filter remaps
-are pinned by Micrometer's pre-filter id cache and cannot be undone by expanding.
-
-## Idempotency: duplicates are not failures (and not lies)
-
-> Deprecated entry point — use `observations.of(name).idempotency(...)` (#92); the semantics below are unchanged.
-
-At-least-once delivery makes duplicates expected. Classify the disposition of the key check;
-successes carry `idempotency=applied|duplicate_skipped`, failures keep the tag key with
-`idempotency=none` (Prometheus needs consistent label sets per meter name):
-
-```java
-return observations.recordIdempotent(
-    "payment.capture",
-    KeyValues.of("channel", "webhook"),
-    () -> handler.process(delivery),
-    result -> result.wasNoOp() ? IdempotencyOutcome.DUPLICATE_SKIPPED : IdempotencyOutcome.APPLIED);
-```
-
-Key conflicts, stale replays, and missing keys are **failures**, not success shapes — throw
-`IdempotencyException` and the `reason`/`alertability` tags follow (`idempotency_conflict` pages;
-`stale_replay` and `idempotency_key_missing` ticket):
-
-```java
-if (!stored.payloadHash().equals(delivery.payloadHash())) {
-    throw new IdempotencyException(IdempotencyReason.CONFLICT);
-}
-```
-
-Idempotency keys, message ids, and dedup-store values must never become tags — only the closed
-disposition above is tag-safe.
-
-## Shared resources: attribute failures to the right owner
-
-Failures on borrowed or pooled resources are misattributed when only the consumer is tagged.
-`SharedResource` emits a fixed five-tag bundle (`resource`, `relationship`, `consumer_tier`,
-`owner_tier`, `pool`) so every relationship has the same label set:
-
-```java
-observations.record(
-    "lesson.assign",
-    SharedResource.borrowed("instructor", "starter", "enterprise").tags()
-        .and(MetricsTags.pairs("channel=web")),
-    () -> assign(lesson));
-```
-
-`owned(...)` sets `owner_tier=self`, `pooled(...)` sets `owner_tier=shared`; `pool=none` unless
-`withPool("pool_eu_1")`. Values are tiers and types — the factories throw on UUID-shaped or long-hex
-values, so a tenant id in a tag fails in your tests, not on the pager. Pool-id boundedness pairs
-with `MetricsMeterFilters.boundedTagValues(...)`.
-
-## Intent–commit–reconcile: abandoned flows become findings, not lies
-
-> Deprecated entry point — use `observations.of(name).reconciliation(...)` (#92); the semantics below are unchanged.
-
-Offline clients record a local intent, commit it later, and a server job reconciles what actually
-happened. Tag the client phases manually; the reconcile recorder owns its phase and classifies its
-finding:
-
-```java
-// client-side phases
-observations.record("sync.flow", KeyValues.of(OutcomePhase.INTENT.tag()), () -> saveLocal(cmd));
-observations.record("sync.flow", KeyValues.of(OutcomePhase.COMMIT.tag()), () -> pushToServer(cmd));
-
-// server-side reconciliation job (phase=reconcile added automatically)
-observations.recordReconciliation(
-    "sync.reconcile", KeyValues.empty(),
-    () -> reconcile(intentWindow),
-    result -> switch (result.state()) {
-        case MATCHED -> ReconcileDisposition.CONFIRMED;
-        case MISMATCHED -> ReconcileDisposition.DIVERGED;
-        case WINDOW_EXPIRED -> ReconcileDisposition.ABANDONED;
-        case STILL_OPEN -> ReconcileDisposition.DEFERRED;
-    });
-```
-
-Abandonment is a finding of a successful reconciliation, not a new `outcome` value — `outcome`
-stays binary. Failures keep both keys (`phase=reconcile`, `disposition=none`). Alert on
-`disposition=diverged|abandoned` rates. Intent ids, device ids, and sync batch ids never become
-tags.
-
-## Combination guard: rare tuples stay anonymous until they aren't rare
-
-Per-tag limits miss rare combinations (region × product × reason) that can point at tiny cohorts.
-Guarded key combinations emit `other` until they show sustained volume — `minSupport` events within
-one tumbling window; reveal is one-way per process:
-
-```java
-CombinationGuard guard = CombinationGuard.builder()
-    .keys("region", "product")
-    .minSupport(20).window(Duration.ofMinutes(15))
-    .namePrefixes("booking.")
-    .build();
-guard.bindTo(meterRegistry); // collapsed-event counter
-
-OutcomeObservations observations = new OutcomeObservations(
-    observationRegistry,
-    OutcomeObservationConvention.builder().combinationGuard(guard).build());
-```
-
-**This is not k-anonymity** — support counts events, not individuals; one chatty user crosses any
-threshold. It reduces re-identification risk as defense-in-depth in front of backend controls.
-Unlike the signal guards (`OutcomeScope`, `ReasonBudget`), which fail open, this privacy guard
-fails **closed**: over the tuple cap, combinations stay collapsed. Guarding `outcome` or
-`alertability` is rejected at build time. Slow-trickling tuples that never reach `minSupport`
-within a window never reveal; the first `minSupport − 1` events stay in the collapsed series
-(counters are monotonic).
-
-## SLO bindings: code declares which SLO it instruments
-
-SLO policy (target, window) stays in your SLO toolchain; code asserts only the binding. Sites
-obtain their `slo` tag through a closed catalog — resolve bindings into constants so a typo fails
-at wiring time, not on the first request:
-
-```java
-SloCatalog slos = SloCatalog.of("checkout-success", "refund-latency");
-slos.bindTo(meterRegistry); // outcome.metrics.slo.info{slo="..."} = 1 per declared id
-
-private static final KeyValue CHECKOUT_SLO = slos.binding("checkout-success");
-
-observations.record("order.place", KeyValues.of(CHECKOUT_SLO).and(dims), work);
-```
-
-The info gauge proves at runtime which SLO ids this binary instruments; alert on rules referencing
-an id with no info series. `@MeasuredOutcome(tags = {"slo=..."})` also works but is not
-catalog-checked — the CI export (#64) is the check for those sites.
-
-## Messaging: delivery fate, attempts, and lag as business signals
-
-> Deprecated entry point — use `observations.of(name).delivery(attempt, ...)` (#92); the semantics below are unchanged.
-
-Broker binders expose lag and rates, not business fate. `recordDelivery` classifies what happens
-to a failing message and buckets the attempt:
-
-```java
-return observations.recordDelivery(
-    "order.consume",
-    KeyValues.of("priority_class", "realtime"),
-    delivery.attempt(),                       // 1-based → attempt_bucket=1|2_3|4_plus
-    () -> handler.process(delivery),
-    error -> error instanceof ValidationException
-        ? DeliveryFate.DEAD_LETTER
-        : DeliveryFate.RETRY);
-```
-
-Success → `fate=processed`; failure → the classifier's `retry`/`dead_letter`/`drop`; a
-misbehaving classifier yields `fate=unknown` and **never masks the original exception** (this
-classifier runs on an already-failed path — deliberately unlike the success-path classifiers).
-
-Outbox drain and consumer-lag SLIs are plain dimensions — no special machinery:
-
-```java
-// outbox publisher: row age at publish
-observations.record("outbox.publish",
-    KeyValues.of(MessagingTags.TAG_LAG_BUCKET, MessagingTags.lagBucket(rowAge),
-        "priority_class", "bulk"),
-    () -> publish(row));
-
-// consumer: lag at delivery × priority × outcome comes from the same two dimensions
-```
-
-`lag_bucket` is closed: `lt_1s|lt_10s|lt_1m|lt_10m|gte_10m` (strict upper bounds; negative lag
-clamps to `lt_1s`). Message ids, offsets, and partitions must never become tags — partition is an
-int no guard can recognize, so this rule is documentation and review.
-
-## PII sentinel: deny list first, detectors as the net
-
-`sanitizeTagValue` normalizes shape; it does not detect identity data. The opt-in policy redacts
-tag values (keys stay — label sets hold) when the key is deny-listed or the value looks like an
-email, UUID, JWT, IPv4, long hex, or long digit run:
-
-```java
-TagPrivacyPolicy policy = TagPrivacyPolicy.saasDefaults(); // user_id, email, ip, token, ...
-policy.bindTo(meterRegistry); // outcome.metrics.tag_privacy.redacted
-
-OutcomeObservations observations = new OutcomeObservations(
-    observationRegistry,
-    OutcomeObservationConvention.builder().tagPrivacyPolicy(policy).build());
-```
-
-The **deny list is the control** (matched on sanitized keys, so `userId` can't dodge `user_id`);
-detectors are best-effort — pre-sanitized values have lost `@`, dots, and casing, so email/JWT/IPv4
-detection only sees raw values. Known false positive: `1.2.3.4` version strings redact; use
-`v1_2_3_4`. Runtime never throws; in tests, assert `policy.violations(tags)` is empty (#31). PII
-in reason codes is `ReasonRegistry`'s job (#24). Scrubbing runs before all other enforcement so
-raw values never reach the combination guard's memory or the registry.
-
-## Experiments: flag × outcome without combinatorial cardinality
-
-Register experiments up front (build-time cap, declared arms); runtime ids from your flag SDK
-never become tag values unless registered:
-
-```java
-ExperimentRegistry experiments = ExperimentRegistry.builder()
-    .experiment("checkout-v2")                                  // arms default control|treatment
-    .experiment("onboarding", "control", "gentle", "aggressive") // declared arms, max 6
-    .build();                                                    // > maxActive (10) fails here
-experiments.bindTo(meterRegistry);
-
-observations.record("checkout.place",
-    experiments.slice(sdk.experimentId(), sdk.variant()).and("surface", "web"),
-    () -> place(cmd));
-```
-
-Unregistered ids collapse to `experiment=unregistered, variant=unknown`; undeclared arms keep the
-id and collapse the variant — both counted on `experiment_registry.unregistered`. **Every event of
-a sliced name needs the bundle**: un-sliced traffic uses `ExperimentRegistry.none()` (label sets
-must match per meter name). For experiment × surface × reason combinatorics, pair with the
-`CombinationGuard`.
-
-## Dual control: witness events, not a widened outcome
-
-Maker-checker gaps span requests and restarts — only your workflow store knows a gap is open, so
-the library holds no lifecycle state. Record witness *events* as observations, close gaps with the
-store-computed duration, and publish pending counts as a gauge:
-
-```java
-// each witness event is a normal observation (tag every event of the name)
-observations.record("payment.release",
-    KeyValues.of(DualControl.WitnessAction.FIRST_APPROVAL.tag()).and("role", "approver"),
-    () -> approve(request));
-
-// on second approval / veto / expiry: record the gap your store measured
-DualControl.recordGap(meterRegistry, "payment.release.witness_gap",
-    KeyValues.of("role", "senior_approver"),
-    store.gapDuration(request), DualControl.GapClosure.COMPLETED);
-
-// pending gaps are a state, not an outcome
-gauges.set("payment.release.pending_gaps", "open witness gaps", Tags.empty(), store.openGapCount());
-```
-
-`veto_after_approval` and `witness_timeout` ship as reasons routed **ticket** — a late veto is the
-control working, and a 72h gap is a process failure, not an outage. Overdue-gap sweeping is the
-reconcile pattern (`recordReconciliation`, #23). Never tag actor ids — and not their hashes either:
-a hashed id is still pseudonymous personal data and unbounded cardinality; emit closed roles (the
-PII sentinel's long-hex detector redacts identity hashes by design).
-
-## Rail divergence: measure the mismatch window, not the endpoint call
-
-Local ledger commit and rail confirmation diverge for hours; endpoint latency doesn't measure that.
-When your store closes a divergence window (webhook, adjudication feed), record its duration:
-
-```java
-// in the (idempotent! see recordIdempotent) webhook handler that closes the window
-RailDivergence.recordWindow(meterRegistry, "payment.rail_divergence",
-    KeyValues.of("local_state", "captured", "rail_state", "returned"),
-    store.divergenceWindow(paymentId),
-    RailDivergence.DivergenceResolution.RETURNED);
-```
-
-`resolution` is closed (`converged|returned|adjusted|written_off`); `local_state`/`rail_state`
-pairs are **your** bounded vocabularies (one library enum can't serve payment rails and insurer
-adjudication at once — pair with the `CombinationGuard` if the product needs it). Active divergence
-counts are gauges (`LatestValueGauges`); rail-specific failure reasons are your `OutcomeReason`
-vocabulary. Duplicate webhook deliveries must not double-record — that's exactly the
-`recordIdempotent` pairing.
-
-## Break-glass: an alertable success, not an auth failure
-
-Emergency overrides are neither auth success nor RBAC denial. Tag lifecycle events with the closed
-stage vocabulary; **alert on the activation rate itself** — that's the signal 401/403 metrics
-can't carry:
-
-```java
-observations.record("clinical.override",
-    KeyValues.of(BreakGlass.Stage.ACTIVATION.tag()).and("resource_class", "patient_record"),
-    () -> openOverride(request));
-
-// review closes days later; record the store-computed lag with the verdict
-BreakGlass.recordReviewLag(meterRegistry, "clinical.override.review_lag",
-    KeyValues.of("cause", "clinical_emergency"),
-    store.reviewLag(overrideId), BreakGlass.ReviewVerdict.JUSTIFIED);
-```
-
-Overdue reviews come from your sweeper (reconcile pattern, #23) with `review_overdue` (ticket).
-Active override counts are gauges. `cause` is your bounded vocabulary. Never tag patient or user
-identifiers — resource classes and verdicts only (the PII sentinel redacts identity-shaped values).
-**Operational metrics are not a legal audit trail**: the WORM audit is a different system, and
-dashboards must never be offered to an auditor as evidence.
-
-## Retry shadow: the cost hidden behind one green outcome
-
-> Deprecated entry point — use `observations.of(name).resilient(...)` (#92); the semantics below are unchanged.
-
-A resilient call succeeds on attempt N; attempts 1..N−1 burned latency and quota. Keep your retry
-loop (Resilience4j, custom) and supply the summary at completion — on failure too, where depth and
-dominant reason matter most:
-
-```java
-AtomicInteger attempts = new AtomicInteger();
-List<OutcomeReason> shadowReasons = new ArrayList<>();
-
-return observations.recordResilient("agent.tool_call", KeyValues.of("tool", "search"),
-    () -> retry.executeSupplier(() -> { attempts.incrementAndGet(); return call(); }),
-    () -> RetryShadow.of(attempts.get(), dominant(shadowReasons),
-        stopwatch.shadowTime(), stopwatch.totalTime()));
-```
-
-Three closed tags ride the same series (never parallel meters): `attempt_bucket` (shared with
-message deliveries), `dominant_reason` (typed `OutcomeReason` — closed by construction), and
-`shadow_cost=none|minor|dominant`. First-try successes use `RetryShadow.firstTry()` so label sets
-stay consistent. A misbehaving summary supplier leaves `unknown` presets and never masks the
-original exception. `occurrence` (#18) dedups repeated observations; retry shadow summarizes
-attempts inside one — complementary.
-
-## Grounding: is the RAG answer backed by its evidence?
-
-> Deprecated entry point — use `observations.of(name).grounding(...)` (#92); the semantics below are unchanged.
-
-`integrity` grades technical trustworthiness; `grounding` grades epistemic backing — an answer can
-be `integrity=ok` and `grounding=hallucinated_gap`, which is exactly the fleet blind spot. Your
-judge supplies the verdict; the library can't detect a hallucination:
-
-```java
-return observations.recordGrounded(
-    "rag.answer",
-    KeyValues.of("retrieval_tier", "hybrid", "citation_mode", "inline"), // your vocabularies
-    () -> pipeline.answer(query),
-    answer -> answer.citations().isEmpty()
-        ? (answer.usedRetrieval() ? GroundingFidelity.IGNORED_EVIDENCE
-                                  : GroundingFidelity.NO_CORPUS_NEEDED)
-        : GroundingFidelity.ALIGNED);
-```
-
-Failures keep `grounding=none`. Asynchronous LLM-as-judge verdicts arrive after the response —
-record them as their *own* evaluation observation carrying the `grounding` tag instead of blocking
-the request path. Alert on `hallucinated_gap`/`ignored_evidence` rates as quality regressions and
-`no_corpus_needed` as wasted retrieval spend.
-
-## Replay deltas: let the harness accuse itself first
-
-Same fingerprint, different verdict — but only after the harness proves it reproduced the read
-context. `ReplayDelta.classify` encodes the comparison order (context drift **voids** the verdict
-comparison; then the most severe changed axis wins):
-
-```java
-ReplayDelta delta = ReplayDelta.classify(
-    !capture.readContextFingerprint().equals(replay.readContextFingerprint()),
-    !capture.verdict().equals(replay.verdict()),
-    capture.latencyClass() != replay.latencyClass(),
-    capture.costClass() != replay.costClass());
-
-observations.record("eval.replay",
-    KeyValues.of(delta.tag()).and("policy_version", policyVersion), // bounded
-    () -> persistReplayResult(replay));
-```
-
-Resolve every relative expression (windows, `latest` aliases, index versions) **once at capture**
-and replay the literals — a re-resolved expression at replay time makes `verdict_flip` a lie.
-Fingerprints (input, policy, read context — and read-set hashes) never become tags: hashes are
-pseudonymous and unbounded, and the PII sentinel redacts long hex by design; they live in the
-harness's capture store.
-
-## Async: bind outcomes to the terminal signal, not the assembly
-
-Wrapping a `Mono` in `record(...)` times the assembly and stamps success before anything ran.
-`startDeferred` starts now and settles at the terminal — from any thread, first terminal wins:
-
-```java
-DeferredOutcome outcome = observations.startDeferred("order.async", dims);
-future.whenComplete((v, e) -> {
-    if (e instanceof CancellationException) outcome.cancel();
-    else if (e != null) outcome.fail(e);
-    else outcome.succeed();
-});
-```
-
-With `outcome-metrics-reactor`, publishers bind in one call (one observation **per subscription** —
-a retry is two attempts), and `@MeasuredOutcome` on Mono/Flux-returning Spring beans auto-binds
-when the module is on the classpath:
-
-```java
-return ReactorOutcomes.record(observations, "flow.fetch", dims, webClientCall());
-```
-
-Cancellation records `outcome=failure, reason=cancelled, alertability=none` — an expected terminal
-(client disconnect) that wakes nobody and is rate-alertable; `cancelled` is schema floor, so
-registries admit it and budgets never charge it. Deferred mode opens no `Observation.Scope`
-(terminals fire on other threads): metrics and spans work, MDC propagation is
-micrometer-context-propagation's job, and `OutcomeScope` fails open to `occurrence=first`. An
-infinite Flux is a never-stopped observation — bind at request granularity. Mutiny: #81,
-coroutines: #82.
-
-## Virtual threads (Loom): already the good case
-
-Per JEP 444, thread-locals are confined to their virtual thread — `OutcomeScope` opened on a
-virtual thread **cannot** bleed to others sharing a carrier (proven by a 2,000-thread isolation
-test in the suite). Scope-per-request on virtual-thread-per-request is the intended model; no
-`ScopedValue` migration is needed (and `ScopedValue` is preview on this library's JDK 21 baseline).
-
-Carrier **pinning** is an execution cost, not a result defect — a pinned success succeeded slowly,
-and slowness is what the timer records. For pin observability, bind Micrometer's own
-`micrometer-java21` `VirtualThreadMetrics` (JFR `jdk.VirtualThreadPinned`) and join on the
-dashboard: pin-event rate against duration shifts of your outcome timers. Per-observation pin
-attribution (thread × time-window correlation) costs more than it tells and is deliberately not
-offered.
-
-## Plugins, classloaders, and native images
-
-If a plugin ships its **own copy** of this library, its exceptions implement a *different*
-`OutcomeReasonSource` of the same name — `instanceof` fails and every plugin reason degrades to
-`unknown`. The fix is deployment hygiene, not federation machinery: the host exports the API
-package, plugins depend on it in **provided scope**, delegation is parent-first for
-`io.github.rabitem.outcomemetrics.*`, and the host owns the `MeterRegistry` and injects it.
-Diagnose the misconfiguration (in tests or error handlers, not the hot path):
-
-```java
-if (MetricTagValues.isForeignReasonSource(error)) {
-    // a foreign copy of OutcomeReasonSource is on the classpath — fix the plugin's dependencies
-}
-```
-
-GraalVM native: reason enums registered by class literal (`ReasonRegistry.vocabulary(MyReasons.class)`)
-are reachable by construction — this library performs no by-name reason loading, so no
-reflect-config is needed. The CI gate for vocabulary completeness is the attestation export (#64)
-plus `ReasonVocabularyContracts` (#31).
-
-## Record with an annotation
-
-```java
-@MeasuredOutcome(name = "order.reserve", tags = {"step=reserve"})
-public Reservation reserve(String sku) { ... }
-```
-
-- Type-level `@MeasuredOutcome` supplies defaults; method-level `name` wins.
-- Tags merge: type first, then method.
-- Spring: bean + proxy call (no self-invocation).
-- Quarkus: CDI bean; non-private method.
-
-Opt into compile-time validation of the annotation constants with `outcome-metrics-processor`
-(add it to `annotationProcessorPaths`): malformed tag pairs, blank keys/values, and unresolvable
-names fail the build instead of the first production request; non-canonical tokens warn. Dynamic
-dimensions belong in `OutcomeObservations.record(...)`, never in annotation constants.
-
-## Failure reasons
+Give the **first** classifier an explicitly typed lambda parameter (or a method reference) so the
+result type infers; everything after follows. Terminals: `record(Runnable | Supplier)`,
+`recordChecked(CheckedRunnable | CheckedSupplier)`, and `startDeferred()` (plain builder only —
+classifications need a completed result).
+
+### Result-shaped classifications
+
+These grade what the operation *delivered*. They run on the success path and **fail loud**: a
+classifier that throws or returns `null` fails the observation — a check that silently passes
+would itself be a quiet failure.
+
+- **`.integrity(...)`** — HTTP 200 can hide a blank PDF or partial write. Grade the result
+  `ok`/`degraded`/`empty`; `outcome` stays `success`, so completion SLOs are untouched while the
+  quiet failure becomes alertable.
+- **`.idempotency(...)`** — at-least-once delivery makes duplicates expected: `applied` vs
+  `duplicate_skipped`, so skipped duplicates neither destroy SLOs as failures nor hide the no-op
+  rate as plain successes. Key conflicts, stale replays, and missing keys are **failures** — throw
+  `IdempotencyException(IdempotencyReason.CONFLICT | STALE_REPLAY | KEY_MISSING)`
+  (`idempotency_conflict` pages; the others ticket).
+- **`.reconciliation(...)`** — server-side reconciliation of offline/edge claims. Adds
+  `phase=reconcile` automatically (overriding a caller-supplied `phase`); the finding is
+  `confirmed`/`diverged`/`abandoned`/`deferred`. Abandonment is a *finding* of a successful
+  reconciliation, never a new `outcome` value. Client phases tag manually:
+  `KeyValues.of(OutcomePhase.INTENT.tag())` / `OutcomePhase.COMMIT.tag()` — every event of a
+  phase-spanning name must carry the tag.
+- **`.grounding(...)`** — RAG epistemics: `integrity` grades technical trustworthiness,
+  `grounding` grades evidence backing. `integrity=ok` + `grounding=hallucinated_gap` is exactly
+  the fleet blind spot. Your judge supplies the verdict (the library cannot detect a
+  hallucination); asynchronous LLM-as-judge verdicts record their *own* evaluation observation
+  carrying the `grounding` tag instead of blocking the request path. `no_corpus_needed` is a cost
+  signal, not a quality failure.
+- **`.resultTags(tagger, "key", ...)`** — arbitrary bounded result tags over declared keys. A
+  tagger that omits a declared key leaves `none`; one that emits an *undeclared* key fails loudly.
+  Values are sanitized (`RETRY` → `retry`).
+
+### Execution-shaped classifications
+
+These summarize how the work *ran*. They also fire on the failure path, and there they **never
+throw or mask**: the observation is recording an incident that already happened — a misbehaving
+classifier leaves `unknown` presets and the original exception propagates untouched.
+
+- **`.delivery(attempt, fateClassifier)`** — message handling. Adds `attempt_bucket`
+  (`1`/`2_3`/`4_plus`; below 1 stays visible as `unknown`). Success → `fate=processed`; failure →
+  your classifier's `retry`/`dead_letter`/`drop`. Outbox-drain and consumer-lag SLIs need no
+  machinery: add `MessagingTags.lagBucket(rowAge)` (`lt_1s`…`gte_10m`, strict bounds, clock skew
+  clamps to `lt_1s`) and a `priority_class` dimension.
+- **`.resilient(shadowSupplier)`** — retries hidden inside one resilient call. Supply
+  `RetryShadow.of(attempts, dominantReason, shadowTime, totalTime)` at completion (your wrapper
+  holds the stats — no ledger); first-try successes use `RetryShadow.firstTry()`. Emits
+  `attempt_bucket` + typed `dominant_reason` + `shadow_cost` (`none`/`minor`/`dominant`), on
+  success **and** on final failure, where depth and dominant reason matter most.
+
+### Composition rules
+
+Multiple classifications combine — the preset union keeps label sets identical on every path.
+Invalid combinations fail at build time, not silently: duplicate declared keys, `delivery` +
+`resilient` (both own `attempt_bucket`, and a cross-process redelivery is not an in-process retry
+count), and `startDeferred()` with any classification configured.
+
+## Failure reasons and alert routing
+
+Reasons are closed machine codes carried by exceptions:
 
 ```java
 public final class PaymentDeclinedException
@@ -579,42 +140,240 @@ public final class PaymentDeclinedException
 }
 ```
 
-Cause chain is walked. Unclassified exceptions → `reason=unknown` (not the exception class name).
+The cause chain is walked for the first usable `OutcomeReasonSource`. Unclassified exceptions →
+`reason=unknown` — never the exception class name.
 
-Every failure **pages by default** (`alertability=page`); downgrade expected failures explicitly to
-`TICKET` or `NONE` by overriding `alertability()`. Unclassified failures and broken
-implementations page — nothing is silenced by omission. The level derives from the reason object,
-so a `ReasonBudget`-suppressed `reason=other` still carries its declared alertability.
+Routing is part of the reason, and the default is **fail-loud**: every failure pages
+(`alertability=page`) until its author explicitly downgrades to `TICKET` or `NONE`. Unclassified
+failures and broken (`null`-returning) implementations page — nothing is silenced by omission. The
+level derives from the reason *object*, so a budget-suppressed `reason=other` still carries its
+declared alertability. Route alerts on the tag, never by regexing reason codes.
 
-## Enforced reason vocabulary
+## Async: bind outcomes to the terminal signal
 
-`OutcomeReasonSource` is convention-only; a `ReasonRegistry` makes membership enforced. Unregistered
-reasons are distrusted entirely — their observations emit `reason=unknown` **and**
-`alertability=page` (a rogue reason must not silence its own page), counted on
-`outcome.metrics.reason_registry.rejected`:
+Wrapping a `Mono` in `record(...)` times the *assembly* and stamps success before anything ran.
+`startDeferred` starts now and settles at the terminal — from any thread, first terminal wins:
 
 ```java
-ReasonRegistry vocabulary = ReasonRegistry.builder()
-    .vocabulary(PaymentReasons.class)   // enum implementing OutcomeReason
-    .codes("cache_stale")               // literal additions
-    .build();
-vocabulary.bindTo(meterRegistry);
+DeferredOutcome outcome = observations.of("order.async").dims(dims).startDeferred();
+future.whenComplete((v, e) -> {
+    if (e instanceof CancellationException) outcome.cancel();
+    else if (e != null) outcome.fail(e);
+    else outcome.succeed();
+});
+```
 
+Adapters bind publishers in one call — one observation **per subscription**, so a retry is two
+attempts — and `@MeasuredOutcome` on reactive-returning beans auto-binds when the adapter module
+is on the classpath:
+
+```java
+// outcome-metrics-reactor (Mono/Flux, Spring aspect auto-binds)
+return ReactorOutcomes.record(observations, "flow.fetch", dims, webClientCall());
+
+// outcome-metrics-mutiny (Uni/Multi, Quarkus interceptor auto-binds)
+return MutinyOutcomes.record(observations, "order.fetch", dims, client.fetch(id));
+```
+
+Cancellation records `outcome=failure, reason=cancelled, alertability=none` — an expected terminal
+(client disconnect) that wakes nobody but is rate-alertable. `cancelled` is schema floor:
+registries admit it, budgets never charge it. Deferred mode opens no `Observation.Scope`
+(terminals fire on other threads): metrics and spans work, MDC propagation is
+micrometer-context-propagation's job, and `OutcomeScope` fails open to `occurrence=first`. An
+unterminated `Flux`/`Multi` is a never-stopped observation — bind at request granularity.
+Kotlin coroutines: #82.
+
+## Scopes: keep repeat storms out of SLIs
+
+One downstream timeout in a request can emit many identical failure observations. Open an
+`OutcomeScope` per unit of work; the first observation of each series tags `occurrence=first`,
+identical repeats `occurrence=repeat`:
+
+```java
+try (OutcomeScope scope = OutcomeScope.open()) {
+    handleRequest(); // any records inside, including @MeasuredOutcome methods
+}
+```
+
+Nothing is dropped — timers, spans and totals keep every event; SLI queries filter
+`occurrence="first"`. Deduplication keys on the full emitted series identity, applies symmetrically
+to successes and failures, and fails open: no scope, another thread, or more than 1024 distinct
+series per scope → `first`. Scopes are thread-confined and nest as a stack. The Spring starter can
+open one per servlet request (`outcome.metrics.scope.enabled`, see [Spring Boot](03-spring-boot.md)).
+
+**Virtual threads are the good case**: per JEP 444, thread-locals are confined to their virtual
+thread — a scope cannot bleed across a carrier (proven by a 2,000-thread isolation test in the
+suite), and no `ScopedValue` migration is needed (preview on the JDK 21 baseline). Carrier
+*pinning* is execution cost, not a result defect — observe it with `micrometer-java21`'s
+`VirtualThreadMetrics` and join pin rate against duration shifts on the dashboard; per-observation
+pin attribution is deliberately not offered.
+
+## The enforcement pipeline
+
+Optional guards compose onto the convention and run in a fixed order — privacy scrub → reason
+registry → reason budget → combination guard — before the tags reach the registry:
+
+```java
 OutcomeObservations observations = new OutcomeObservations(
     observationRegistry,
     OutcomeObservationConvention.builder()
-        .reasonRegistry(vocabulary)
-        .reasonBudget(new ReasonBudget(8, 64)) // optional; registry runs first
+        .tagPrivacyPolicy(TagPrivacyPolicy.saasDefaults())
+        .reasonRegistry(ReasonRegistry.builder().vocabulary(PaymentReasons.class).codes("cache_stale").build())
+        .reasonBudget(new ReasonBudget(8, 64))
+        .combinationGuard(CombinationGuard.builder()
+            .keys("region", "product").minSupport(20).window(Duration.ofMinutes(15)).build())
         .build());
 ```
 
-Runtime enforcement never throws — telemetry must not turn one incident into two; blank codes fail
-fast at registration. `codes()` exposes the sanitized vocabulary for tests and CI attestation
-(export tooling: #64). Order with a budget: unregistered → `unknown`/page (no budget consumed);
-registered but over budget → `other` with declared alertability preserved.
+Each is a `MeterBinder` (call `bindTo(meterRegistry)` for its gauges/counters), and both framework
+adapters can compose all four from configuration ([Spring](03-spring-boot.md) ·
+[Quarkus](04-quarkus.md)). Runtime enforcement **never throws** — telemetry must not turn one
+incident into two; validation fails fast at registration/wiring time instead.
+
+- **`TagPrivacyPolicy`** — redacts tag *values* (keys stay, so label sets hold) when the key is
+  deny-listed or the value looks like an email, UUID, JWT, IPv4, long hex, or long digit run;
+  counted on `tag_privacy.redacted`. The deny list is the control (matched on sanitized keys, so
+  `userId` can't dodge `user_id`); detectors are best-effort — pre-sanitized values have lost `@`,
+  dots, and casing. Known false positive: `1.2.3.4` version strings redact; use `v1_2_3_4`. In
+  tests, assert `policy.violations(tags)` is empty. Runs first so raw values never reach guard
+  memory or the registry.
+- **`ReasonRegistry`** — makes reason membership enforced, not conventional. Unregistered reasons
+  are distrusted *entirely*: `reason=unknown` **and** forced `alertability=page` (a rogue reason
+  must not silence its own page), counted on `reason_registry.rejected`. The schema floor
+  (`none`/`unknown`/`other`/`cancelled`) is implicitly registered; `codes()` feeds the CI
+  attestation ([Testing](06-testing.md)).
+- **`ReasonBudget`** — bounds distinct `reason` codes per observation name; the rest emit `other`
+  with a suppression counter. `expand()` restores full detail at runtime — effective on the next
+  event, *including previously suppressed codes*; `collapse()` re-bounds new codes but never
+  evicts admitted ones. Expansion is deliberately manual (runbook/webhook, not an in-process
+  burn-rate copy). Floor codes never consume budget; registered-over-budget keeps its declared
+  alertability. If you also bound `reason` with a tag-value filter, keep that bound ≥ the expanded
+  limit — filter remaps are pinned by Micrometer's pre-filter id cache.
+- **`CombinationGuard`** — per-tag limits miss rare combinations (region × product × reason) that
+  can point at tiny cohorts. Guarded-key combinations emit `other` until they show `minSupport`
+  events within one tumbling window; reveal is one-way per process (the first `minSupport − 1`
+  events stay collapsed — counters are monotonic), slow-trickling tuples never reveal, and over
+  the tuple cap the guard fails **closed**. Guarding `outcome` or `alertability` is rejected at
+  build time. **This is not k-anonymity** — support counts events, not individuals; it is
+  re-identification *risk reduction* in front of backend controls.
+
+## Domain vocabularies
+
+Closed vocabularies and helpers for specific domains. All follow the same rules: no lifecycle
+state in the library (only your store spans requests and restarts — helpers take store-computed
+durations), caller-owned dimensions where the library has no authority, and consistent label sets.
+
+- **`SharedResource`** — multi-tenant attribution: `owned(type, consumerTier)` /
+  `borrowed(type, consumerTier, ownerTier)` / `pooled(type, consumerTier)` emit a fixed five-tag
+  bundle (`resource`, `relationship`, `consumer_tier`, `owner_tier`, `pool`) with `owner_tier=self`
+  for owned, `shared` for pooled, `pool=none` unless `withPool(...)`. Factories throw on
+  UUID-shaped/long-hex values — a tenant id in a tag fails in your tests, not on the pager.
+- **`SloCatalog`** — code declares *which* SLO it instruments; policy (target, window) stays in
+  your SLO toolchain. `binding("checkout-success")` returns the `slo` tag and throws for
+  undeclared ids — resolve into constants so typos fail at wiring. `bindTo` emits
+  `outcome.metrics.slo.info{slo}=1` per id; alert on `absent(...)` when rules reference an id the
+  binary no longer instruments. `@MeasuredOutcome(tags = {"slo=..."})` works but is not
+  catalog-checked — the CI attestation covers those sites. Rule generation:
+  [Operations](08-operations.md#slo-scaffolding-generate-the-rules-keep-the-policy).
+- **`ExperimentRegistry`** — flag × outcome without combinatorial cardinality. Register
+  experiments up front (`maxActive` cap, declared arms ≤ 6, default `control|treatment`);
+  `slice(id, arm)` never throws: unregistered ids collapse to `experiment=unregistered,
+  variant=unknown` (raw flag keys mechanically never become tags), undeclared arms collapse the
+  variant only, both counted. Un-sliced traffic on a sliced name uses `ExperimentRegistry.none()`.
+- **`DualControl`** — maker-checker without a widened outcome: witness *events* are observations
+  tagged `WitnessAction.FIRST_APPROVAL|SECOND_APPROVAL|VETO|EXPIRY.tag()`; the gap records via
+  `DualControl.recordGap(registry, name, dims, storeDuration, GapClosure.COMPLETED|VETOED|EXPIRED)`;
+  pending gaps are a *state* — publish a gauge (`LatestValueGauges`). `veto_after_approval` and
+  `witness_timeout` ship ticket-routed: a late veto is the control *working*, a 72h gap is process
+  failure, not outage. Roles only — never actor ids or their hashes.
+- **`BreakGlass`** — an emergency override is a **success that must alert**: alert on the
+  `break_glass="activation"` stage rate itself (the signal 401/403 metrics can't carry). Stages
+  `ACTIVATION|ACCESS|REVIEW|CLOSURE`; review lag via `recordReviewLag(...)` with
+  `verdict=justified|unjustified|inconclusive`; overdue reviews come from your sweeper
+  (reconciliation pattern) with the ticket-routed `review_overdue` reason. **Operational metrics
+  are not a legal audit trail** — the WORM audit is a different system, and dashboards are never
+  audit evidence.
+- **`RailDivergence`** — local ledger vs payment/clinical rail state diverge for hours; endpoint
+  latency doesn't measure that. When your store closes a window:
+  `recordWindow(registry, name, dims, storeDuration, DivergenceResolution.CONVERGED|RETURNED|ADJUSTED|WRITTEN_OFF)`.
+  `local_state`/`rail_state` pairs are *your* bounded vocabularies. Close windows from idempotent
+  webhook handlers (`.idempotency(...)`) so duplicate deliveries can't double-record.
+- **`RetentionClass` / `RetentionFilters`** — two TTLs, one instrumentation: tag audit-worthy
+  operations `RetentionClass.AUDIT.tag()` (untagged = ops by default — nothing becomes audit-class
+  by accident) and route with stock Micrometer (`CompositeMeterRegistry` + `auditOnly()` /
+  `excludeAudit()` on children). A routing hint, never a legal guarantee.
+- **`ReplayDelta`** — eval flakiness with the harness accusing itself first:
+  `classify(contextDiffers, verdictFlipped, latencyShifted, costShifted)` encodes the precedence —
+  an unreproduced read context **voids** the comparison (`context_drift`) before any
+  `verdict_flip`/`latency_class_shift`/`cost_class_shift`. Resolve relative expressions once at
+  capture and replay the literals; fingerprints never become tags.
+
+## Annotations
+
+```java
+@MeasuredOutcome(name = "order.reserve", tags = {"step=reserve"})
+public Reservation reserve(String sku) { ... }
+```
+
+- Type-level `@MeasuredOutcome` supplies defaults; method-level `name` wins; tags merge type-first.
+- Spring: bean + proxy call (no self-invocation). Quarkus: CDI bean, non-private method.
+- Reactive return types (`Mono`/`Flux` with `outcome-metrics-reactor`, `Uni`/`Multi` with
+  `outcome-metrics-mutiny`) bind to the terminal signal automatically.
+- Opt into compile-time validation with `outcome-metrics-processor` in `annotationProcessorPaths`:
+  malformed tag pairs, blank keys/values, and unresolvable names fail the build instead of the
+  first production request; non-canonical tokens warn. Dynamic dimensions belong in the builder,
+  never in annotation constants.
+
+## The hard rules
+
+- **`outcome` stays binary.** Every richer verdict — integrity, grounding, dispositions, fates —
+  rides a parallel tag, so `outcome=failure` ratio queries never break.
+- **Closed vocabularies only.** Values come from enums and declared sets; anything open-ended
+  degrades to a floor value (`unknown`, `other`, `unregistered`) instead of minting series.
+- **Tags, never parallel meters.** A second meter for the same events drifts from the first and
+  can't join against the schema.
+- **Label sets are law.** Every series of a meter name carries the same tag keys — declared keys
+  preset to `none` on the paths that don't produce values. Getting this wrong is ugly on *every*
+  client: legacy Prometheus clients reject the second registration outright, and the current
+  client (Micrometer 1.13+) silently exposes the mixed label sets, splitting `sum by (...)`
+  aggregations with no error anywhere — verified against a real `PrometheusMeterRegistry` in the
+  test suite. `hasConsistentLabelSets()` ([Testing](06-testing.md)) is the loud gate.
+- **Telemetry never throws at emission time**, and failure-path helpers never mask the original
+  exception. Fail fast at registration/wiring/build time instead.
+- **Signal guards fail open; privacy guards fail closed.** Over a scope/budget cap, signal stays
+  visible; over the combination-guard cap, tuples stay hidden. Opposite directions, both on
+  purpose.
+
+## Plugins, classloaders, and native images
+
+If a plugin ships its **own copy** of this library, its exceptions implement a *different*
+`OutcomeReasonSource` of the same name — `instanceof` fails and every plugin reason degrades to
+`unknown`. The fix is deployment hygiene, not federation: the host exports the API package,
+plugins depend on it in **provided scope**, delegation is parent-first for
+`io.github.rabitem.outcomemetrics.*`, and the host owns the injected `MeterRegistry`. Diagnose in
+tests or error handlers (not the hot path):
+
+```java
+if (MetricTagValues.isForeignReasonSource(error)) {
+    // a foreign copy of OutcomeReasonSource is on the classpath — fix the plugin's dependencies
+}
+```
+
+GraalVM native: reason enums registered by class literal
+(`ReasonRegistry.vocabulary(MyReasons.class)`) are reachable by construction — the library performs
+no by-name reason loading, so no reflect-config is needed. Vocabulary completeness is a CI concern:
+attestation + `ReasonVocabularyContracts` ([Testing](06-testing.md)).
+
+## Legacy entry points
+
+The specialized methods (`recordClassified`, `recordIdempotent`, `recordReconciliation`,
+`recordDelivery`, `recordResilient`, `recordGrounded`, and the tagger overloads of `record`) are
+`@Deprecated` delegates to the builder, slated for removal at 1.0. Semantics are unchanged — the
+builder is the same machinery with composition. Plain `record`/`recordChecked`
+(name-dims-work) and `startDeferred(name, dims)` remain undeprecated conveniences.
 
 ## What this library does not do
 
 - Replace HTTP/DB auto-instrumentation
-- Replace OpenTelemetry SDK
+- Replace the OpenTelemetry SDK
 - Export metrics by itself (use Prometheus / OTLP via Micrometer)

@@ -7,22 +7,22 @@ How to add `outcome-metrics` to a Spring Boot or Quarkus service.
 | I need to… | Go here |
 |---|---|
 | Run the sample apps | [Quickstart](01-quickstart.md) |
-| Know what tags get emitted | [API](02-api.md) |
+| Record outcomes, know the tags, compose classifications | [API](02-api.md) |
 | Wire Spring Boot | [Spring Boot](03-spring-boot.md) |
 | Wire Quarkus | [Quarkus](04-quarkus.md) |
 | Cap tag cardinality | [Cardinality](05-cardinality.md) |
-| Assert metrics in tests | [Testing](06-testing.md) |
+| Assert metrics, gate vocabularies in CI | [Testing](06-testing.md) |
 | Decide if this library fits | [When to use](07-when-to-use.md) |
-| Alert / disable in prod | [Operations](08-operations.md) |
+| Query, alert, link traces, generate SLO rules, disable in prod | [Operations](08-operations.md) |
 | Measure overhead (JMH) | [`benchmarks/`](../../benchmarks/) |
 
 **Samples:** [`spring-boot-demo`](../../samples/spring-boot-demo/) (`:18080`) · [`quarkus-demo`](../../samples/quarkus-demo/) (`:18081`)
 
 ```text
 your method
-  → OutcomeObservations / @MeasuredOutcome
+  → observations.of(name)…record(work)   (or @MeasuredOutcome)
   → Micrometer Observation → timer (+ span if tracing is on)
-  → tags: outcome=success|failure, reason=none|unknown|<your_code>
+  → tags: outcome, reason, integrity, alertability, occurrence (+ opt-in classifications)
 ```
 
 Instrument service/command boundaries. Skip controllers that already have HTTP metrics.

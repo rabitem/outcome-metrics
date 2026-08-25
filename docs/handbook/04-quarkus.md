@@ -47,10 +47,9 @@ public class ShipmentService {
   }
 
   public Map<String, Object> dispatch(String orderId, String carrier) {
-    return observations.record(
-        "shipment.dispatch",
-        MetricsTags.pairs("carrier=" + carrier),
-        () -> doDispatch(orderId, carrier));
+    return observations.of("shipment.dispatch")
+        .dims(MetricsTags.pairs("carrier=" + carrier))
+        .record(() -> doDispatch(orderId, carrier));
   }
 
   @MeasuredOutcome(name = "shipment.label", tags = {"step=label"})

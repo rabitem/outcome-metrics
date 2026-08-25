@@ -5,38 +5,31 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/rabitem/outcome-metrics/badge)](https://scorecard.dev/viewer/?uri=github.com/rabitem/outcome-metrics)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13963/badge)](https://www.bestpractices.dev/projects/13963)
 
-Micrometer **outcome observations** and **cardinality guardrails**, with thin adapters for **Spring Boot** and **Quarkus**.
+**Business-outcome observations for Micrometer, with the guardrails built in.**
 
-Record a unit of work once → get a timer today and a trace span when tracing is configured. Overflowing tag values remap to `other` instead of vanishing.
+Record a unit of work once and get a timer (plus a span when tracing is on) carrying a closed,
+low-cardinality schema: `outcome`, `reason`, `integrity`, `alertability`, `occurrence` — and
+opt-in classifications for idempotency, reconciliation, delivery fate, retry shadow, and RAG
+grounding. Cardinality, PII, and vocabulary drift are enforced in the pipeline, not in code
+review.
 
 > Status: **0.1.0-beta.2** (pre-1.0). APIs may still move.
 
-**Docs:** [Handbook](docs/handbook/README.md) · [Samples](samples/README.md) · [JMH](benchmarks/README.md) · [OpenSSF Best Practices](docs/openssf-best-practices.md) · [llms.txt](llms.txt)
+**Docs:** [Handbook](docs/handbook/README.md) · [Samples](samples/README.md) ·
+[Benchmarks](benchmarks/README.md) · [OpenSSF Best Practices](docs/openssf-best-practices.md) ·
+[llms.txt](llms.txt)
 
-## Modules
-
-| Artifact | Purpose | Dependencies |
-|---|---|---|
-| `outcome-metrics` | Core API (`OutcomeObservations`, filters, `@MeasuredOutcome`) | Micrometer + JSpecify only |
-| `outcome-metrics-spring-boot-starter` | Spring Boot auto-config + AOP | Spring Boot + AspectJ |
-| `outcome-metrics-quarkus` | Quarkus extension + CDI interceptor | Quarkus Micrometer |
-| `outcome-metrics-bom` | Thin BOM for version alignment | — |
-
-Requires **Java 21+**.
-
-## Spring Boot
+## Quickstart
 
 ```xml
+<!-- Spring Boot 4 -->
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-spring-boot-starter</artifactId>
   <version>0.1.0-beta.2</version>
 </dependency>
-```
 
-## Quarkus
-
-```xml
+<!-- Quarkus 3 -->
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-quarkus</artifactId>
@@ -44,102 +37,100 @@ Requires **Java 21+**.
 </dependency>
 ```
 
-## Usage
-
 ```java
-private final OutcomeObservations observations;
-
-return observations.record(
-    "voucher.command",
-    KeyValues.of("command", "apply"),
-    () -> doApply(command));
+return observations.of("voucher.command")
+    .dims(KeyValues.of("command", "apply"))
+    .record(() -> doApply(command));
 ```
 
-Prefer closed reason codes via `OutcomeReasonSource`. Unclassified exceptions map to `reason=unknown` (not the exception class name).
-
-Or annotate:
+Or annotate — the interceptor handles sync and reactive (`Mono`/`Flux`, `Uni`/`Multi`) return
+types alike:
 
 ```java
 @MeasuredOutcome(name = "voucher.command", tags = {"command=apply"})
 public Result apply(Command command) { ... }
 ```
 
-### Configuration (`outcome.metrics`)
+Compose classifications on one operation:
+
+```java
+return observations.of("payment.capture")
+    .dims(KeyValues.of("channel", "webhook"))
+    .integrity((Payment r) -> r.complete() ? OutcomeIntegrity.OK : OutcomeIntegrity.DEGRADED)
+    .idempotency(r -> r.wasNoOp() ? IdempotencyOutcome.DUPLICATE_SKIPPED : IdempotencyOutcome.APPLIED)
+    .record(() -> handler.process(delivery));
+```
+
+Full schema, builder reference, and every vocabulary: [API handbook](docs/handbook/02-api.md).
+
+## Modules
+
+| Artifact | Purpose |
+|---|---|
+| `outcome-metrics` | Core: recording builder, tag schema, enforcement pipeline, domain vocabularies, `@MeasuredOutcome` |
+| `outcome-metrics-spring-boot-starter` | Spring Boot 4 auto-config, AOP interception, per-request scope filter, enforcement from properties |
+| `outcome-metrics-quarkus` | Quarkus 3 extension (preview): CDI interceptor, enforcement from config |
+| `outcome-metrics-reactor` | Terminal-signal binding for `Mono`/`Flux` (+ Spring aspect auto-detection) |
+| `outcome-metrics-mutiny` | Terminal-signal binding for `Uni`/`Multi` (+ Quarkus interceptor auto-detection) |
+| `outcome-metrics-processor` | Opt-in annotation processor: malformed `@MeasuredOutcome` constants fail the build |
+| `outcome-metrics-test` | Test contracts: label-set consistency, schema/cardinality/PII assertions, vocabulary attestation, propagation checks, SLO scaffolding |
+| `outcome-metrics-bom` | Version alignment for all of the above |
+
+Requires **Java 21+**.
+
+## Design principles
+
+Eight rules generate every decision in this library:
+
+1. **`outcome` stays binary** — richer verdicts (integrity, grounding, fates, dispositions) ride
+   parallel tags, so failure-ratio queries never break.
+2. **Closed vocabularies only** — open-ended values degrade to floor values (`unknown`, `other`,
+   `unregistered`) instead of minting series; unclassified exceptions map to `reason=unknown`,
+   never the class name.
+3. **Tags, never parallel meters** — one series of truth that everything joins against.
+4. **Label sets are law** — every series of a meter name carries the same tag keys; declared keys
+   preset to `none` on the paths that don't produce values.
+5. **Telemetry never throws at emission time** — validation fails fast at wiring/build time; the
+   failure path never masks the original exception.
+6. **Signal guards fail open, privacy guards fail closed** — over a cap, signal stays visible and
+   private data stays hidden.
+7. **No lifecycle state in the library** — only your store spans requests and restarts; helpers
+   take store-computed durations.
+8. **Policy stays out of process** — SLO targets, burn rates, and alert routing live in the
+   toolchain; code declares bindings and vocabularies.
+
+## Configuration
 
 ```yaml
 outcome:
   metrics:
     enabled: true
-    max-meters: 50000
-    cache:
-      normalize-tags: true
     annotation:
       enabled: true
     scope:
-      enabled: false   # opt-in per-request OutcomeScope filter (servlet only)
+      enabled: false        # opt-in per-request OutcomeScope filter (servlet only)
+    max-meters: 50000
     tag-limits:
       - meter-name-prefix: websocket.
         tag-key: destination
-        maximum-values: 32
+        maximum-values: 32  # further values remap to `other`, counted on tag_value_overflows
+    # enforcement pipeline (reason-budget, reason-registry, combination-guard, privacy):
+    # see the Spring Boot / Quarkus handbook pages
 ```
 
 `outcome.metrics.*` keys are public API: renames require a major version bump.
 
-Overflowing tag values remap to `other`. The gauge `outcome.metrics.tag_value_overflows` counts remaps.
-
 ## Overhead
 
-Indicative numbers (Apple M2 Max, JDK 25, reduced JMH iterations — see
-[benchmarks](benchmarks/README.md) for configuration and caveats): a raw Micrometer timer is
-~50 ns/op; an outcome observation is ~1.3 µs/op, dominated by the Micrometer Observation
-machinery; composing the **entire** enforcement pipeline (reason registry + budget + combination
-guard + privacy policy) adds ~0.6 µs, and an open `OutcomeScope` ~30 ns. Instrument units of work,
+Indicative numbers (Apple M2 Max, JDK 25, reduced JMH iterations — configuration and caveats in
+[benchmarks](benchmarks/README.md)): a raw Micrometer timer is ~50 ns/op; an outcome observation
+is ~1.3 µs/op, dominated by Micrometer's Observation machinery; composing the **entire**
+enforcement pipeline adds ~0.6 µs, and an open `OutcomeScope` ~30 ns. Instrument units of work,
 not tight loops.
-
-## Rules of the road
-
-- Instrument **units of work**, not every method.
-- Tags must be **low-cardinality** (never raw user ids, emails, or free-text).
-- Prefer `OutcomeObservations` + `OutcomeReasonSource` over hand-rolled counters.
-
-## Design decisions
-
-| Decision | Choice |
-|---|---|
-| Unclassified failure `reason` | `unknown` (not exception class names) |
-| Tag-value overflow | Remap to `other` (meters stay visible) |
-| Classified successes | Still emit `outcome`/`reason`, plus sanitized result tags |
-| Quiet failures | Parallel `integrity` tag (`ok`/`degraded`/`empty`); `outcome` stays binary for SLOs |
-| Repeat storms | `occurrence` tag (`first`/`repeat`) per `OutcomeScope`; repeats stay recorded, SLIs filter `first` |
-| Reason cardinality | Optional `ReasonBudget`: bounded codes per name, operator-expandable at runtime, never evicts |
-| Reason membership | Optional `ReasonRegistry`: unregistered reasons emit `unknown` + forced `page`; never throws at runtime |
-| Annotation firewall | Opt-in `outcome-metrics-processor`: malformed `@MeasuredOutcome` constants fail the build |
-| Combination privacy | Optional `CombinationGuard`: rare guarded-tag tuples emit `other` until sustained volume; fails closed |
-| SLO binding | `SloCatalog` issues `slo=<id>` tags (undeclared ids fail at wiring); info gauge proves runtime bindings |
-| Messaging fate | `recordDelivery`: `fate=processed`/`retry`/`dead_letter`/`drop` + `attempt_bucket`; lag via closed `lag_bucket` |
-| PII sentinel | Optional `TagPrivacyPolicy`: deny-listed keys + identity-shaped values redact to `redacted`; never throws |
-| Experiments | `ExperimentRegistry`: pre-registered ids + declared arms; raw flag keys collapse to `unregistered` |
-| Test contracts | `outcome-metrics-test`: label-set consistency, schema/cardinality/PII assertions, vocabulary contracts, optional ArchUnit rules |
-| Dual control | `witness` action vocabulary + `closure`-tagged gap timer fed from the workflow store; roles, never actor ids or hashes |
-| Rail divergence | `RailDivergence.recordWindow` timer with `resolution=converged/returned/adjusted/written_off`; state pairs are caller vocabularies |
-| Break-glass | `break_glass` stage vocabulary + `verdict`-tagged review-lag timer; alert on activation rate; metrics ≠ audit trail |
-| Retention routing | `retention=ops`/`audit` vocabulary + `RetentionFilters` on composite-registry children; untagged = ops |
-| Retry shadow | `recordResilient`: `attempt_bucket` + typed `dominant_reason` + `shadow_cost=none/minor/dominant` on success **and** failure |
-| RAG grounding | `recordGrounded`: `grounding=aligned/ignored_evidence/hallucinated_gap/no_corpus_needed`; async judges record their own observation |
-| Replay deltas | `ReplayDelta.classify`: `context_drift` voids the verdict comparison before `verdict_flip`/shifts; fingerprints never become tags |
-| Async terminals | `startDeferred` primitive + `outcome-metrics-reactor`; Spring aspect auto-binds Mono/Flux; `cancelled` is schema floor |
-| Virtual threads | `OutcomeScope` is VT-confined by JEP 444 (isolation-tested); pin observability via `micrometer-java21`, joined on dashboards |
-| Plugins/native | No federation: API in provided scope + parent-first delegation; `isForeignReasonSource` diagnoses duplicated copies; class-literal registration = native reachability |
-| Alert routing | `alertability` tag (`page`/`ticket`/`none`) declared per reason; unclassified failures page |
-| Idempotency | `idempotency=applied`/`duplicate_skipped` on success, `none` on failure; conflicts/stale/missing-key are failure reasons |
-| Shared resources | `SharedResource` five-tag bundle (`owned`/`borrowed`/`pooled`); factories reject UUID-shaped values |
-| Offline sync | `phase=intent`/`commit`/`reconcile` + `disposition` finding (`confirmed`/`diverged`/`abandoned`/`deferred`); `outcome` stays binary |
-| Config prefix | `outcome.metrics.*` frozen until 1.0 |
-| Quarkus extension status | `preview` until broader production dogfooding |
 
 ## Samples
 
-Runnable Spring Boot and Quarkus demos (not part of the library reactor):
+Runnable demos (built outside the library reactor):
 
 | Demo | Port | Metrics |
 |---|---|---|
@@ -161,7 +152,9 @@ Runnable Spring Boot and Quarkus demos (not part of the library reactor):
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Please use [private vulnerability reporting](https://github.com/rabitem/outcome-metrics/security/advisories/new) for security issues ([SECURITY.md](SECURITY.md)).
+See [CONTRIBUTING.md](CONTRIBUTING.md) — commits need a DCO sign-off (`git commit -s`). Please use
+[private vulnerability reporting](https://github.com/rabitem/outcome-metrics/security/advisories/new)
+for security issues ([SECURITY.md](SECURITY.md)).
 
 ## License
 
