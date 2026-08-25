@@ -27,3 +27,6 @@ credentials.json
 
 # JMH raw run artifacts (committed summary lives in benchmarks/RESULTS.md)
 benchmarks/results/
+
+# Local agent worktrees and session state — never commit
+.claude/
