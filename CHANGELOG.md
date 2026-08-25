@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Trace exemplars recipe: outcome series link from alerts to traces via
+  OpenMetrics exemplars — pure wiring on Micrometer 1.17 (Spring Boot auto-wires the Prometheus
+  `SpanContext` when a tracing bridge is present; plain Micrometer passes one to the registry
+  constructor). Verified executable proof in `PrometheusExemplarTest`: `_count` samples carry
+  exemplars out of the box, `_bucket` samples once percentile histograms are enabled; handbook
+  section covers OpenMetrics negotiation, `--enable-feature=exemplar-storage`, and the
+  recording-thread caveat for deferred outcomes.
+
 ### Fixed
 
 - Classified result tags now support a declared key schema (#60): new
