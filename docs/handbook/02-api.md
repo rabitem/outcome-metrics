@@ -45,7 +45,29 @@ against a real `PrometheusMeterRegistry` in the test suite.
 
 `MetricsTags` / result tags are sanitized (`RETRY` → `retry`).
 
+## Compose classifications: the recording builder
+
+The specialized `record*` methods are deprecated in favor of one composable entry (#92) — it is
+also the only way to put **multiple** classifications on one operation:
+
+```java
+Payment payment = observations.of("payment.capture")
+    .dims(KeyValues.of("channel", "webhook"))
+    .integrity((Payment r) -> r.complete() ? OutcomeIntegrity.OK : OutcomeIntegrity.DEGRADED)
+    .idempotency(r -> r.wasNoOp() ? IdempotencyOutcome.DUPLICATE_SKIPPED : IdempotencyOutcome.APPLIED)
+    .record(() -> handler.process(delivery));
+```
+
+Give the *first* classifier an explicitly typed lambda parameter (or a method reference) so the
+result type infers; everything after follows. All established contracts hold per feature and per
+combination: declared keys preset to `none`/`unknown` so label sets stay consistent on every path,
+success-path classifiers fail loud, `delivery`/`resilient` never mask the original exception.
+Invalid combinations fail at build time: duplicate declared keys, `delivery` + `resilient` (both
+own `attempt_bucket`), and `startDeferred()` with any classification configured.
+
 ## Integrity: catch quiet failures
+
+> Deprecated entry point — use `observations.of(name).integrity(...)` (#92); the semantics below are unchanged.
 
 HTTP 200 and `outcome=success` can hide a degraded business result (blank PDF, partial write). Grade
 the delivered result with an `IntegrityClassifier` — `outcome` stays `success`, so completion SLOs
@@ -105,6 +127,8 @@ are pinned by Micrometer's pre-filter id cache and cannot be undone by expanding
 
 ## Idempotency: duplicates are not failures (and not lies)
 
+> Deprecated entry point — use `observations.of(name).idempotency(...)` (#92); the semantics below are unchanged.
+
 At-least-once delivery makes duplicates expected. Classify the disposition of the key check;
 successes carry `idempotency=applied|duplicate_skipped`, failures keep the tag key with
 `idempotency=none` (Prometheus needs consistent label sets per meter name):
@@ -150,6 +174,8 @@ values, so a tenant id in a tag fails in your tests, not on the pager. Pool-id b
 with `MetricsMeterFilters.boundedTagValues(...)`.
 
 ## Intent–commit–reconcile: abandoned flows become findings, not lies
+
+> Deprecated entry point — use `observations.of(name).reconciliation(...)` (#92); the semantics below are unchanged.
 
 Offline clients record a local intent, commit it later, and a server job reconciles what actually
 happened. Tag the client phases manually; the reconcile recorder owns its phase and classifies its
@@ -224,6 +250,8 @@ an id with no info series. `@MeasuredOutcome(tags = {"slo=..."})` also works but
 catalog-checked — the CI export (#64) is the check for those sites.
 
 ## Messaging: delivery fate, attempts, and lag as business signals
+
+> Deprecated entry point — use `observations.of(name).delivery(attempt, ...)` (#92); the semantics below are unchanged.
 
 Broker binders expose lag and rates, not business fate. `recordDelivery` classifies what happens
 to a failing message and buckets the attempt:
@@ -376,6 +404,8 @@ dashboards must never be offered to an auditor as evidence.
 
 ## Retry shadow: the cost hidden behind one green outcome
 
+> Deprecated entry point — use `observations.of(name).resilient(...)` (#92); the semantics below are unchanged.
+
 A resilient call succeeds on attempt N; attempts 1..N−1 burned latency and quota. Keep your retry
 loop (Resilience4j, custom) and supply the summary at completion — on failure too, where depth and
 dominant reason matter most:
@@ -398,6 +428,8 @@ original exception. `occurrence` (#18) dedups repeated observations; retry shado
 attempts inside one — complementary.
 
 ## Grounding: is the RAG answer backed by its evidence?
+
+> Deprecated entry point — use `observations.of(name).grounding(...)` (#92); the semantics below are unchanged.
 
 `integrity` grades technical trustworthiness; `grounding` grades epistemic backing — an answer can
 be `integrity=ok` and `grounding=hallucinated_gap`, which is exactly the fleet blind spot. Your

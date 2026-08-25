@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Composable recording builder (#92): `observations.of(name)` replaces the specialized `record*`
+  surface — nine entry points grown one issue at a time — with one fluent entry that can also
+  *compose* classifications (integrity + idempotency on one operation, previously impossible).
+  Declared keys preset on every path (label sets hold, #60); invalid combinations fail at build
+  time (`delivery`+`resilient`, duplicate keys, classified `startDeferred`). The specialized
+  methods are `@Deprecated` delegates slated for removal at 1.0.
+
 - Prometheus registry in the test matrix: the label-set claims (#60) are now verified against a
   genuine `PrometheusMeterRegistry` scrape. Empirical correction shipped with it: the current
   Prometheus client (Micrometer 1.13+) does **not** reject mixed label sets under one meter name —

@@ -1,18 +1,11 @@
 package io.github.rabitem.outcomemetrics.observation;
 
-import io.github.rabitem.outcomemetrics.MessagingTags;
-import io.github.rabitem.outcomemetrics.MetricTagValues;
 import io.github.rabitem.outcomemetrics.MetricsTags;
-import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -66,6 +59,25 @@ public final class OutcomeObservations {
             final OutcomeObservationConvention convention) {
         this.observationRegistry = Objects.requireNonNull(observationRegistry, "observationRegistry must not be null");
         this.convention = Objects.requireNonNull(convention, "convention must not be null");
+    }
+
+    /**
+     * Starts a composable recording (issue #92) — the one entry that lets classifications combine
+     * on a single operation.
+     *
+     * <pre>{@code
+     * observations.of("payment.capture")
+     *     .dims(KeyValues.of("channel", "webhook"))
+     *     .integrity((Payment r) -> ...)
+     *     .idempotency(r -> ...)
+     *     .record(() -> handler.process(delivery));
+     * }</pre>
+     *
+     * @param name observation name; must not be blank
+     * @return a new recording builder, never {@code null}
+     */
+    public OutcomeRecording of(final String name) {
+        return new OutcomeRecording(this, name);
     }
 
     /**
@@ -143,8 +155,9 @@ public final class OutcomeObservations {
      * @deprecated result tags are emitted on success only, so an operation that can fail produces
      * inconsistent label sets under one meter name — legacy Prometheus clients reject that at
      * registration, and the current client silently exposes the mixed sets, splitting aggregations
-     * (issue #60). Use {@link #record(String, KeyValues, Supplier, Function, String...)} and declare
-     * the tag keys — failures then emit every declared key as {@code none}.
+     * (issue #60). Use {@link #of(String)} with
+     * {@link OutcomeRecording#resultTags(Function, String...)} and declare the tag keys — failures
+     * then emit every declared key as {@code none}.
      */
     @Deprecated(since = "0.1.0")
     public <T> T record(
@@ -180,7 +193,11 @@ public final class OutcomeObservations {
      * @param resultTagger           maps a successful result to bounded tags over the declared keys
      * @param declaredResultTagKeys  the complete result-tag key schema; at least one, none blank
      * @return result from {@code work}
+     * @deprecated use {@link #of(String)} with
+     * {@link OutcomeRecording#resultTags(Function, String...)} (issue #92) — the builder composes
+     * result tags with every other classification.
      */
+    @Deprecated(since = "0.1.0")
     public <T> T record(
             final String name,
             final KeyValues dimensions,
@@ -189,16 +206,7 @@ public final class OutcomeObservations {
             final String... declaredResultTagKeys) {
         Objects.requireNonNull(work, "work must not be null");
         Objects.requireNonNull(resultTagger, "resultTagger must not be null");
-        final KeyValues presets = declaredPresets(declaredResultTagKeys);
-        final OutcomeObservationContext context = context(dimensions);
-        context.markClassified();
-        context.setResultTags(presets);
-        return runUnchecked(name, context, () -> {
-            final T result = work.get();
-            context.setResultTags(declaredOnly(
-                    presets, MetricsTags.sanitize(resultTagger.apply(result)), declaredResultTagKeys));
-            return result;
-        });
+        return of(name).dims(dimensions).<T>resultTags(resultTagger, declaredResultTagKeys).record(work);
     }
 
     /**
@@ -219,13 +227,17 @@ public final class OutcomeObservations {
      * @param work       work to time and observe; must not be {@code null}
      * @param classifier grades the successful result's integrity; must not be {@code null}
      * @return result from {@code work}
+     * @deprecated use {@link #of(String)} with {@link OutcomeRecording#integrity} (issue #92).
      */
+    @Deprecated(since = "0.1.0")
     public <T> T recordClassified(
             final String name,
             final KeyValues dimensions,
             final Supplier<T> work,
             final IntegrityClassifier<? super T> classifier) {
-        return recordClassified(name, dimensions, work, classifier, result -> KeyValues.empty());
+        Objects.requireNonNull(work, "work must not be null");
+        Objects.requireNonNull(classifier, "classifier must not be null");
+        return of(name).dims(dimensions).<T>integrity(classifier).record(work);
     }
 
     /**
@@ -243,8 +255,8 @@ public final class OutcomeObservations {
      *                     {@code null}
      * @return result from {@code work}
      * @deprecated same label-set hazard as the tagger overload of {@code record} (issue #60); use
-     * {@link #recordClassified(String, KeyValues, Supplier, IntegrityClassifier, Function, String...)}
-     * with declared keys.
+     * {@link #of(String)} with {@link OutcomeRecording#integrity} and
+     * {@link OutcomeRecording#resultTags(Function, String...)} (issue #92).
      */
     @Deprecated(since = "0.1.0")
     public <T> T recordClassified(
@@ -282,7 +294,10 @@ public final class OutcomeObservations {
      * @param resultTagger          maps a successful result to bounded tags over the declared keys
      * @param declaredResultTagKeys the complete result-tag key schema; at least one, none blank
      * @return result from {@code work}
+     * @deprecated use {@link #of(String)} with {@link OutcomeRecording#integrity} and
+     * {@link OutcomeRecording#resultTags(Function, String...)} (issue #92).
      */
+    @Deprecated(since = "0.1.0")
     public <T> T recordClassified(
             final String name,
             final KeyValues dimensions,
@@ -293,50 +308,10 @@ public final class OutcomeObservations {
         Objects.requireNonNull(work, "work must not be null");
         Objects.requireNonNull(classifier, "classifier must not be null");
         Objects.requireNonNull(resultTagger, "resultTagger must not be null");
-        final KeyValues presets = declaredPresets(declaredResultTagKeys);
-        final OutcomeObservationContext context = context(dimensions);
-        context.markClassified();
-        context.setResultTags(presets);
-        return runUnchecked(name, context, () -> {
-            final T result = work.get();
-            context.setIntegrity(
-                    Objects.requireNonNull(classifier.classify(result), "classifier must not return null"));
-            context.setResultTags(declaredOnly(
-                    presets, MetricsTags.sanitize(resultTagger.apply(result)), declaredResultTagKeys));
-            return result;
-        });
-    }
-
-    private static KeyValues declaredPresets(final String[] declaredKeys) {
-        Objects.requireNonNull(declaredKeys, "declaredResultTagKeys must not be null");
-        if (declaredKeys.length == 0) {
-            throw new IllegalArgumentException("declare at least one result tag key");
-        }
-        final List<KeyValue> presets = new ArrayList<>(declaredKeys.length);
-        for (final String key : declaredKeys) {
-            if (key == null || key.isBlank()) {
-                throw new IllegalArgumentException("declared result tag key must not be blank");
-            }
-            presets.add(KeyValue.of(key.strip(), MetricTagValues.NONE));
-        }
-        return KeyValues.of(presets);
-    }
-
-    private static KeyValues declaredOnly(
-            final KeyValues presets,
-            final KeyValues emitted,
-            final String[] declaredKeys) {
-        final Set<String> declared = new HashSet<>();
-        for (final String key : declaredKeys) {
-            declared.add(key.strip());
-        }
-        for (final KeyValue tag : emitted) {
-            if (!declared.contains(tag.getKey())) {
-                throw new IllegalStateException("result tagger emitted undeclared key \""
-                        + tag.getKey() + "\"; declared keys: " + declared);
-            }
-        }
-        return presets.and(emitted);
+        return of(name).dims(dimensions)
+                .<T>integrity(classifier)
+                .resultTags(resultTagger, declaredResultTagKeys)
+                .record(work);
     }
 
     /**
@@ -357,16 +332,16 @@ public final class OutcomeObservations {
      * @param classifier maps the successful result to its idempotency disposition; must not be
      *                   {@code null}
      * @return result from {@code work}
+     * @deprecated use {@link #of(String)} with {@link OutcomeRecording#idempotency} (issue #92).
      */
+    @Deprecated(since = "0.1.0")
     public <T> T recordIdempotent(
             final String name,
             final KeyValues dimensions,
             final Supplier<T> work,
             final IdempotencyClassifier<? super T> classifier) {
         Objects.requireNonNull(classifier, "classifier must not be null");
-        return recordDeclaredResultTag(name, dimensions, work, IdempotencyOutcome.TAG_IDEMPOTENCY,
-                result -> Objects.requireNonNull(
-                        classifier.classify(result), "classifier must not return null").tagValue());
+        return of(name).dims(dimensions).<T>idempotency(classifier).record(work);
     }
 
     /**
@@ -385,16 +360,16 @@ public final class OutcomeObservations {
      * @param work       RAG work to time and observe; must not be {@code null}
      * @param classifier maps the successful result to its grounding verdict; must not be {@code null}
      * @return result from {@code work}
+     * @deprecated use {@link #of(String)} with {@link OutcomeRecording#grounding} (issue #92).
      */
+    @Deprecated(since = "0.1.0")
     public <T> T recordGrounded(
             final String name,
             final KeyValues dimensions,
             final Supplier<T> work,
             final GroundingClassifier<? super T> classifier) {
         Objects.requireNonNull(classifier, "classifier must not be null");
-        return recordDeclaredResultTag(name, dimensions, work, GroundingFidelity.TAG_GROUNDING,
-                result -> Objects.requireNonNull(
-                        classifier.classify(result), "classifier must not return null").tagValue());
+        return of(name).dims(dimensions).<T>grounding(classifier).record(work);
     }
 
     /**
@@ -416,7 +391,9 @@ public final class OutcomeObservations {
      * @param classifier maps the successful result to its reconciliation finding; must not be
      *                   {@code null}
      * @return result from {@code work}
+     * @deprecated use {@link #of(String)} with {@link OutcomeRecording#reconciliation} (issue #92).
      */
+    @Deprecated(since = "0.1.0")
     public <T> T recordReconciliation(
             final String name,
             final KeyValues dimensions,
@@ -424,13 +401,7 @@ public final class OutcomeObservations {
             final ReconcileClassifier<? super T> classifier) {
         Objects.requireNonNull(classifier, "classifier must not be null");
         Objects.requireNonNull(dimensions, "dimensions must not be null");
-        return recordDeclaredResultTag(
-                name,
-                dimensions.and(OutcomePhase.RECONCILE.tag()),
-                work,
-                ReconcileDisposition.TAG_DISPOSITION,
-                result -> Objects.requireNonNull(
-                        classifier.classify(result), "classifier must not return null").tagValue());
+        return of(name).dims(dimensions).<T>reconciliation(classifier).record(work);
     }
 
     /**
@@ -451,7 +422,9 @@ public final class OutcomeObservations {
      * @param work       delivery work to time and observe; must not be {@code null}
      * @param classifier maps a delivery failure to its fate; must not be {@code null}
      * @return result from {@code work}
+     * @deprecated use {@link #of(String)} with {@link OutcomeRecording#delivery} (issue #92).
      */
+    @Deprecated(since = "0.1.0")
     public <T> T recordDelivery(
             final String name,
             final KeyValues dimensions,
@@ -461,26 +434,7 @@ public final class OutcomeObservations {
         Objects.requireNonNull(work, "work must not be null");
         Objects.requireNonNull(classifier, "classifier must not be null");
         Objects.requireNonNull(dimensions, "dimensions must not be null");
-        final OutcomeObservationContext context = context(
-                dimensions.and(MessagingTags.TAG_ATTEMPT_BUCKET, MessagingTags.attemptBucket(attempt)));
-        context.markClassified();
-        context.setResultTags(KeyValues.of(DeliveryFate.TAG_FATE, MetricTagValues.UNKNOWN));
-        try {
-            return run(name, context, () -> {
-                final T result = work.get();
-                context.setResultTags(KeyValues.of(DeliveryFate.TAG_FATE, DeliveryFate.PROCESSED.tagValue()));
-                return result;
-            }, error -> {
-                final DeliveryFate fate = classifier.classify(error);
-                if (fate != null) {
-                    context.setResultTags(KeyValues.of(DeliveryFate.TAG_FATE, fate.tagValue()));
-                }
-            });
-        } catch (final RuntimeException | Error e) {
-            throw e;
-        } catch (final Throwable t) {
-            throw new IllegalStateException("supplier threw a checked throwable", t);
-        }
+        return of(name).dims(dimensions).delivery(attempt, classifier).record(work);
     }
 
     /**
@@ -501,7 +455,9 @@ public final class OutcomeObservations {
      * @param work   resilient call to time and observe; must not be {@code null}
      * @param shadow supplies the retry summary at completion; must not be {@code null}
      * @return result from {@code work}
+     * @deprecated use {@link #of(String)} with {@link OutcomeRecording#resilient} (issue #92).
      */
+    @Deprecated(since = "0.1.0")
     public <T> T recordResilient(
             final String name,
             final KeyValues dims,
@@ -509,49 +465,7 @@ public final class OutcomeObservations {
             final Supplier<RetryShadow> shadow) {
         Objects.requireNonNull(work, "work must not be null");
         Objects.requireNonNull(shadow, "shadow must not be null");
-        final OutcomeObservationContext context = context(dims);
-        context.markClassified();
-        context.setResultTags(RetryShadow.unknownTags());
-        try {
-            return run(name, context, () -> {
-                final T result = work.get();
-                applyShadow(context, shadow);
-                return result;
-            }, error -> applyShadow(context, shadow));
-        } catch (final RuntimeException | Error e) {
-            throw e;
-        } catch (final Throwable t) {
-            throw new IllegalStateException("supplier threw a checked throwable", t);
-        }
-    }
-
-    private static void applyShadow(final OutcomeObservationContext context, final Supplier<RetryShadow> shadow) {
-        try {
-            final RetryShadow summary = shadow.get();
-            if (summary != null) {
-                context.setResultTags(summary.tags());
-            }
-        } catch (final RuntimeException | Error ignored) {
-            // Summarizing telemetry must not fail the observation or mask the original exception.
-        }
-    }
-
-    private <T> T recordDeclaredResultTag(
-            final String name,
-            final KeyValues dimensions,
-            final Supplier<T> work,
-            final String tagKey,
-            final Function<? super T, String> successValue) {
-        Objects.requireNonNull(work, "work must not be null");
-        final OutcomeObservationContext context = context(dimensions);
-        context.markClassified();
-        // Preset so a failure still emits the tag key with value none, keeping label sets consistent.
-        context.setResultTags(KeyValues.of(tagKey, MetricTagValues.NONE));
-        return runUnchecked(name, context, () -> {
-            final T result = work.get();
-            context.setResultTags(KeyValues.of(tagKey, successValue.apply(result)));
-            return result;
-        });
+        return of(name).dims(dims).resilient(shadow).record(work);
     }
 
     /**
@@ -588,7 +502,7 @@ public final class OutcomeObservations {
         return run(name, context, work, null);
     }
 
-    private <T> T run(
+    <T> T run(
             final String name,
             final OutcomeObservationContext context,
             final CheckedSupplier<T> work,
@@ -635,7 +549,7 @@ public final class OutcomeObservations {
                 .observationConvention(convention);
     }
 
-    private OutcomeObservationContext context(final KeyValues dimensions) {
+    OutcomeObservationContext context(final KeyValues dimensions) {
         return new OutcomeObservationContext(Objects.requireNonNull(dimensions, "dimensions must not be null"));
     }
 }

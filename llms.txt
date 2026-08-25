@@ -38,6 +38,9 @@ public Reservation reserve(String sku) { ... }
 public OutcomeReason outcomeReason() { return () -> "payment_declined"; }
 ```
 
+Builder (#92, preferred): `observations.of(name).dims(tags).integrity((T r) -> ...)
+.idempotency(r -> ...).record(work)` — composes any classifications on one operation; the
+specialized record* methods are deprecated onto it; invalid combos fail at build time.
 Tags: `outcome=success|failure`, `reason=none|unknown|<code>`, `integrity=ok|degraded|empty|none`.
 Result taggers: declare keys — `record(name, tags, work, tagger, "result")` presets declared keys
 to `none` on failure (label-set consistency); undeclared emitted keys fail loudly.
