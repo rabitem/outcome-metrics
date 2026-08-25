@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
-## [0.1.0-beta.3] - 2026-08-25
+## [0.1.0-beta.4] - 2026-08-25
+
+Replaces the retracted 0.1.0-beta.3: that release was deleted shortly after publication to purge
+repository-history noise from its tag, and immutable-release rules prevent reusing the tag name.
+Content is identical apart from this note.
 
 This wave takes the library from a single `record(...)` helper to a full outcome-observation
 contract: a composable recording builder, an always-on five-tag schema
@@ -19,17 +23,14 @@ pipeline (privacy → reason registry → reason budget → combination guard), 
 for Reactor/Mutiny, domain vocabularies, a test-contracts module, and published overhead numbers.
 Entries below are newest-first.
 
-### Added
-
-- Trace exemplars recipe: outcome series link from alerts to traces via
-  OpenMetrics exemplars — pure wiring on Micrometer 1.17 (Spring Boot auto-wires the Prometheus
-  `SpanContext` when a tracing bridge is present; plain Micrometer passes one to the registry
-  constructor). Verified executable proof in `PrometheusExemplarTest`: `_count` samples carry
-  exemplars out of the box, `_bucket` samples once percentile histograms are enabled; handbook
-  section covers OpenMetrics negotiation, `--enable-feature=exemplar-storage`, and the
-  recording-thread caveat for deferred outcomes.
-
 ### Fixed
+
+- Handler-added `error` tag closed off (#97): Micrometer's `DefaultMeterObservationHandler` stamps
+  every observation meter with an `error` tag holding exception simple class names — an
+  uncontrolled open vocabulary beside the closed schema. New
+  `MetricsMeterFilters.dropRedundantErrorTag()` removes it from outcome meters only (scoped by the
+  `outcome` tag; foreign metrics like `http.server.requests` untouched), wired by default in the
+  Spring starter and Quarkus extension (`outcome.metrics.drop-error-tag=false` to opt out).
 
 - Classified result tags now support a declared key schema (#60): new
   `record(..., resultTagger, String... declaredResultTagKeys)` and the matching `recordClassified`
@@ -44,6 +45,14 @@ Entries below are newest-first.
   operation within an `OutcomeScope`).
 
 ### Added
+
+- Trace exemplars recipe: outcome series link from alerts to traces via OpenMetrics exemplars —
+  pure wiring on Micrometer 1.17 (Spring Boot auto-wires the Prometheus `SpanContext` when a
+  tracing bridge is present; plain Micrometer passes one to the registry constructor). Verified
+  executable proof in `PrometheusExemplarTest`: `_count` samples carry exemplars out of the box,
+  `_bucket` samples once percentile histograms are enabled; handbook section covers OpenMetrics
+  negotiation, `--enable-feature=exemplar-storage`, and the recording-thread caveat for deferred
+  outcomes.
 
 - Composable recording builder (#92): `observations.of(name)` replaces the specialized `record*`
   surface — nine entry points grown one issue at a time — with one fluent entry that can also

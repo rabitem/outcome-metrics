@@ -46,7 +46,7 @@ Spring Boot 4:
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-spring-boot-starter</artifactId>
-  <version>0.1.0-beta.3</version>
+  <version>0.1.0-beta.4</version>
 </dependency>
 ```
 
@@ -58,7 +58,7 @@ Quarkus 3:
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-quarkus</artifactId>
-  <version>0.1.0-beta.3</version>
+  <version>0.1.0-beta.4</version>
 </dependency>
 <dependency>
   <groupId>io.quarkus</groupId>

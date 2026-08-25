@@ -8,7 +8,7 @@ Extension: `outcome-metrics-quarkus` · status: **preview** · Quarkus 3.38+ / J
 <dependency>
   <groupId>io.github.rabitem</groupId>
   <artifactId>outcome-metrics-quarkus</artifactId>
-  <version>0.1.0-beta.3</version>
+  <version>0.1.0-beta.4</version>
 </dependency>
 <dependency>
   <groupId>io.quarkus</groupId>
