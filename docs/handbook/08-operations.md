@@ -124,3 +124,24 @@ dashboards are never audit evidence).
 | Quarkus demo | `http://localhost:18081/q/metrics` |
 
 Vulns: [SECURITY.md](../../SECURITY.md). Config key renames need a major version.
+
+## SLO scaffolding: generate the rules, keep the policy
+
+`SloScaffold` (in `outcome-metrics-test`) emits Sloth `prometheus/v1` skeletons from the
+`SloCatalog`, with queries derived from the outcome schema (`occurrence="first"` totals, errors
+adding `outcome="failure"`). Every declared id must be bound, so the scaffold can never disagree
+with the runtime info gauge:
+
+```java
+SloScaffold.builder()
+    .service("checkout")
+    .catalog(sloCatalog)
+    .bind("checkout-success", "demo_order_place_seconds_count")
+    .build()
+    .writeTo(Path.of("slo/checkout-slos.yaml"));
+```
+
+The loop: **generate → set each `objective` (the emitted `SET_OBJECTIVE_PERCENT` placeholder is
+non-numeric, so Sloth refuses an unedited skeleton) → commit → run Sloth → the
+`absent(outcome_metrics_slo_info{...})` drift alert above closes the circle.** Policy stays in the
+toolchain — the generator writes queries and structure, never targets or windows.

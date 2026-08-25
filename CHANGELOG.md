@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- SLO rule scaffolding: `SloScaffold` in `outcome-metrics-test` generates Sloth `prometheus/v1`
+  skeletons from the `SloCatalog` — schema-derived queries (`occurrence="first"` totals, errors
+  adding `outcome="failure"`), every declared id required to be bound, and a non-numeric
+  `objective` placeholder that Sloth rejects until a human sets policy. Targets and windows stay
+  in the SLO toolchain; the `absent()` drift alert (#27) closes the loop.
+
 - Pipeline overhead benchmarks: `PipelineOverheadBenchmark` measures the fully composed
   convention (registry + budget + guard + privacy) against unenforced paths and a raw timer;
   indicative numbers published in the benchmarks README and linked from the root README
