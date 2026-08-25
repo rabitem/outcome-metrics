@@ -1,6 +1,8 @@
 package io.github.rabitem.outcomemetrics;
 
 import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import org.jspecify.annotations.NonNull;
 
@@ -25,6 +27,43 @@ public final class MetricsMeterFilters {
      *                    {@code null}
      * @return a cache tag-normalizing filter, never {@code null}
      */
+    /**
+     * Drops Micrometer's handler-added {@code error} tag from outcome meters (issue #97).
+     *
+     * <p>{@code DefaultMeterObservationHandler} stamps every observation-backed meter with an
+     * {@code error} tag holding {@code none} or the throwable's <em>simple class name</em> — an
+     * uncontrolled open vocabulary riding beside this library's closed schema: any new exception
+     * type mints a new series, and class names can leak internals. The information is redundant
+     * here: {@code outcome} already says failure and {@code reason} already says why, through the
+     * registry/budget pipeline.
+     *
+     * <p>Precisely scoped: the tag is removed only from meters that also carry the {@code outcome}
+     * tag, so foreign observation metrics (for example {@code http.server.requests}) keep their
+     * {@code error} tag untouched. Dropped uniformly per outcome meter name, label sets stay
+     * consistent. Static drop at the filter layer is legitimate — nothing ever needs to promote.
+     * Wired by default in the Spring starter and Quarkus extension
+     * ({@code outcome.metrics.drop-error-tag=false} to keep the raw tag).
+     *
+     * @return meter filter removing {@code error} from outcome meters
+     */
+    public static MeterFilter dropRedundantErrorTag() {
+        return new MeterFilter() {
+            @Override
+            public Meter.@NonNull Id map(final Meter.@NonNull Id id) {
+                if (id.getTag("outcome") == null || id.getTag("error") == null) {
+                    return id;
+                }
+                Tags kept = Tags.empty();
+                for (final Tag tag : id.getTags()) {
+                    if (!"error".equals(tag.getKey())) {
+                        kept = kept.and(tag);
+                    }
+                }
+                return id.replaceTags(kept);
+            }
+        };
+    }
+
     public static MeterFilter cacheTagNormalizer(final Set<String> removedTags) {
         final Set<String> tagsToRemove = Set.copyOf(Objects.requireNonNull(removedTags, "removedTags must not be null"));
         return new MeterFilter() {

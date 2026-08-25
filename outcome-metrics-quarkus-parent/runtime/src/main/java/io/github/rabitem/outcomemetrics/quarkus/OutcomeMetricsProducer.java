@@ -146,6 +146,21 @@ public class OutcomeMetricsProducer {
     }
 
     /**
+     * Drops the handler-added open-vocabulary {@code error} tag from outcome meters (issue #97).
+     *
+     * @return meter filter
+     */
+    @Produces
+    @Singleton
+    @LookupIfProperty.List({
+            @LookupIfProperty(name = "outcome.metrics.enabled", stringValue = "true", lookupIfMissing = true),
+            @LookupIfProperty(name = "outcome.metrics.drop-error-tag", stringValue = "true", lookupIfMissing = true)
+    })
+    public MeterFilter outcomeMetricsErrorTagFilter() {
+        return MetricsMeterFilters.dropRedundantErrorTag();
+    }
+
+    /**
      * Meter cardinality ceiling.
      *
      * @param config outcome metrics config

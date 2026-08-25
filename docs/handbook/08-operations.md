@@ -169,6 +169,7 @@ dashboards are never audit evidence).
 |---|---|
 | `outcome.metrics.enabled=false` | Everything off |
 | `outcome.metrics.annotation.enabled=false` | Annotations off; programmatic API stays |
+| `outcome.metrics.drop-error-tag=false` | Keep Micrometer's raw `error` tag (exception class names) on outcome meters |
 
 Config key renames need a major version.
 
