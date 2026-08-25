@@ -39,4 +39,4 @@ is available.
 
 Immutable GitHub Releases still prevent mutating a published release’s assets.
 Do not reuse a tag name after a published immutable release — cut the next
-semver instead (`v0.1.0-beta.1` is burned; use `v0.1.0-beta.2`+).
+semver instead (`v0.1.0-beta.1` is burned; use `v0.1.0-beta.3`+).

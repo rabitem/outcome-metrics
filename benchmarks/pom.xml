@@ -13,7 +13,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
-        <outcome-metrics.version>0.1.0-beta.2</outcome-metrics.version>
+        <outcome-metrics.version>0.1.0-beta.3</outcome-metrics.version>
         <micrometer.version>1.17.0</micrometer.version>
         <jmh.version>1.37</jmh.version>
         <uberjar.name>benchmarks</uberjar.name>
