@@ -72,10 +72,9 @@ public class OrderService {
   }
 
   public Order place(String sku, String channel) {
-    return observations.record(
-        "order.place",
-        MetricsTags.pairs("channel=" + channel),
-        () -> doPlace(sku, channel));
+    return observations.of("order.place")
+        .dims(MetricsTags.pairs("channel=" + channel))
+        .record(() -> doPlace(sku, channel));
   }
 
   @MeasuredOutcome(name = "order.reserve", tags = {"step=reserve"})

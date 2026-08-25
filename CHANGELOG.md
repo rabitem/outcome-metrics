@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+This wave takes the library from a single `record(...)` helper to a full outcome-observation
+contract: a composable recording builder, an always-on five-tag schema
+(`outcome`/`reason`/`integrity`/`alertability`/`occurrence`), opt-in classifications
+(idempotency, reconciliation, delivery fate, retry shadow, RAG grounding), an enforcement
+pipeline (privacy → reason registry → reason budget → combination guard), terminal-signal binding
+for Reactor/Mutiny, domain vocabularies, a test-contracts module, and published overhead numbers.
+Entries below are newest-first.
+
 ### Added
 
 - Trace exemplars recipe: outcome series link from alerts to traces via

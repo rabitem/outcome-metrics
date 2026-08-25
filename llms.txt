@@ -1,119 +1,152 @@
 # outcome-metrics
 
-Micrometer outcome observations + cardinality limits for Spring Boot and Quarkus.
-0.1.0-beta.2 preview · Java 21+ · config: `outcome.metrics.*`
+Business-outcome observations for Micrometer with built-in guardrails; Spring Boot 4 + Quarkus 3.
+0.1.0-beta.2 preview · Java 21+ · config prefix `outcome.metrics.*` (stable until 1.0)
 
 ## Docs
 
-- [Handbook](docs/handbook/README.md)
-- [Quickstart](docs/handbook/01-quickstart.md)
-- [API](docs/handbook/02-api.md)
-- [Spring Boot](docs/handbook/03-spring-boot.md)
-- [Quarkus](docs/handbook/04-quarkus.md)
-- [Cardinality](docs/handbook/05-cardinality.md)
-- [Testing](docs/handbook/06-testing.md)
-- [When to use](docs/handbook/07-when-to-use.md)
-- [Operations](docs/handbook/08-operations.md)
-- [Samples](samples/README.md)
-- [JMH](benchmarks/README.md)
+- [Handbook index](docs/handbook/README.md) · [Quickstart](docs/handbook/01-quickstart.md) ·
+  [API](docs/handbook/02-api.md) · [Spring Boot](docs/handbook/03-spring-boot.md) ·
+  [Quarkus](docs/handbook/04-quarkus.md) · [Cardinality](docs/handbook/05-cardinality.md) ·
+  [Testing](docs/handbook/06-testing.md) · [When to use](docs/handbook/07-when-to-use.md) ·
+  [Operations](docs/handbook/08-operations.md)
+- [Samples](samples/README.md) · [Benchmarks](benchmarks/README.md)
 
 ## Artifacts
 
 | Artifact | Purpose |
 |---|---|
-| `outcome-metrics` | Core: `OutcomeObservations`, `@MeasuredOutcome`, filters |
-| `outcome-metrics-spring-boot-starter` | Spring Boot 4 auto-config + AOP |
-| `outcome-metrics-quarkus` | Quarkus extension (preview) |
+| `outcome-metrics` | Core: builder, schema, enforcement, vocabularies, `@MeasuredOutcome` |
+| `outcome-metrics-spring-boot-starter` | Spring Boot 4 auto-config + AOP + scope filter + config enforcement |
+| `outcome-metrics-quarkus` | Quarkus extension (preview) + CDI interceptor + config enforcement |
+| `outcome-metrics-reactor` | Mono/Flux terminal binding (Spring aspect auto-detects) |
+| `outcome-metrics-mutiny` | Uni/Multi terminal binding (Quarkus interceptor auto-detects) |
+| `outcome-metrics-processor` | Compile-time `@MeasuredOutcome` validation (annotationProcessorPaths) |
+| `outcome-metrics-test` | Test contracts, vocabulary attestation, SLO scaffolding |
 | `outcome-metrics-bom` | BOM |
 
-## API cheat sheet
+## The API: the recording builder
 
 ```java
-observations.record("order.place", MetricsTags.pairs("channel=web"), () -> place());
+observations.of("order.place").dims(KeyValues.of("channel", "web")).record(() -> place(cmd));
 
-@MeasuredOutcome(name = "order.reserve", tags = {"step=reserve"})
+// compose classifications (first classifier's lambda parameter types the chain):
+observations.of("payment.capture").dims(dims)
+    .integrity((Payment r) -> r.complete() ? OutcomeIntegrity.OK : OutcomeIntegrity.DEGRADED)
+    .idempotency(r -> r.wasNoOp() ? IdempotencyOutcome.DUPLICATE_SKIPPED : IdempotencyOutcome.APPLIED)
+    .record(() -> handler.process(delivery));
+
+@MeasuredOutcome(name = "order.reserve", tags = {"step=reserve"})  // annotation route
 public Reservation reserve(String sku) { ... }
-
-// domain exception
-public OutcomeReason outcomeReason() { return () -> "payment_declined"; }
 ```
 
-Builder (#92, preferred): `observations.of(name).dims(tags).integrity((T r) -> ...)
-.idempotency(r -> ...).record(work)` — composes any classifications on one operation; the
-specialized record* methods are deprecated onto it; invalid combos fail at build time.
-Tags: `outcome=success|failure`, `reason=none|unknown|<code>`, `integrity=ok|degraded|empty|none`.
-Result taggers: declare keys — `record(name, tags, work, tagger, "result")` presets declared keys
-to `none` on failure (label-set consistency); undeclared emitted keys fail loudly.
-Quiet failures: `recordClassified(name, tags, work, result -> OutcomeIntegrity.DEGRADED)` grades a
-technically successful result; failures carry `integrity=none`.
-Repeat storms: `try (var s = OutcomeScope.open()) { ... }` tags identical repeats per series
-`occurrence=repeat` (SLIs filter `occurrence="first"`); no scope → always `first`.
-Reason budget: `new OutcomeObservations(registry, new ReasonBudget(8, 64))` bounds distinct
-failure codes per name (rest → `other`); `budget.expand()` restores full detail at runtime.
-Plugins: host exports the API (provided scope, parent-first delegation); a duplicated library copy
-makes `instanceof OutcomeReasonSource` fail → `reason=unknown`; diagnose with
-`MetricTagValues.isForeignReasonSource(error)`. Native: class-literal registration is reachable.
-Virtual threads: `OutcomeScope` is confined per virtual thread (JEP 444) — no carrier bleed, no
-ScopedValue needed; pinning = execution cost, observe via `micrometer-java21` VirtualThreadMetrics.
-Async terminals: `observations.startDeferred(name, dims)` → `succeed()|fail(t)|cancel()` (first
-terminal wins); `outcome-metrics-reactor`: `ReactorOutcomes.record(observations, name, dims,
-monoOrFlux)` — one observation per subscription; `@MeasuredOutcome` auto-binds Mono/Flux in Spring
-when the module is present; cancel → `reason=cancelled` (schema floor), `alertability=none`.
-Replay deltas: `ReplayDelta.classify(contextDiffers, verdictFlipped, latencyShifted, costShifted)`
-→ `stable|context_drift|verdict_flip|latency_class_shift|cost_class_shift` (context drift voids
-the comparison); record replay runs as observations with `.tag()`; fingerprints never become tags.
-RAG grounding: `recordGrounded(name, tags, work, a -> GroundingFidelity.ALIGNED|IGNORED_EVIDENCE|
-HALLUCINATED_GAP|NO_CORPUS_NEEDED)`; failures keep `grounding=none`; async judges record their own
-evaluation observation with the `grounding` tag; retrieval_tier/citation_mode are caller dims.
-Retry shadow: `recordResilient(name, tags, work, () -> RetryShadow.of(attempts, dominantReason,
-shadowTime, totalTime))` — tags `attempt_bucket`/`dominant_reason`/`shadow_cost` on success AND
-failure; `RetryShadow.firstTry()` for clean calls; misbehaving supplier leaves `unknown` presets.
-Retention: tag `RetentionClass.AUDIT.tag()` (untagged = ops); wire `CompositeMeterRegistry` with
-`RetentionFilters.auditOnly()` on the long-TTL child (`excludeAudit()` for strict splits);
-routing hint, never a legal guarantee.
-Break-glass: tag `BreakGlass.Stage.ACTIVATION|ACCESS|REVIEW|CLOSURE.tag()` (alert on activation
-rate); `BreakGlass.recordReviewLag(registry, name, dims, lag, ReviewVerdict.JUSTIFIED|UNJUSTIFIED|
-INCONCLUSIVE)`; `review_overdue` reason (ticket); metrics are not a legal audit trail.
-Rail divergence: `RailDivergence.recordWindow(registry, name, dims, storeDuration,
-DivergenceResolution.CONVERGED|RETURNED|ADJUSTED|WRITTEN_OFF)` — never throws; state pairs are
-caller dims; close windows from idempotent webhook handlers (`recordIdempotent`).
-Dual control: tag events `DualControl.WitnessAction.FIRST_APPROVAL|SECOND_APPROVAL|VETO|EXPIRY
-.tag()`; `DualControl.recordGap(registry, name, dims, storeDuration, GapClosure.COMPLETED|VETOED|
-EXPIRED)`; reasons `veto_after_approval`/`witness_timeout` (ticket); roles only, never id hashes.
-Testing: `outcome-metrics-test` — `assertThatOutcomes(registry).hasConsistentLabelSets()
-.hasOutcomeSchema(name).hasSeriesCardinalityAtMost(name, n).hasNoPrivacyViolations(policy)`;
-`ReasonVocabularyContracts.assertWellFormed(EnumClass)`; optional `OutcomeArchRules`.
-Experiments: `ExperimentRegistry.builder().experiment("checkout-v2").build().slice(id, arm)` →
-`experiment`/`variant` tags; unregistered ids collapse (`unregistered`/`unknown`) + counter;
-un-sliced traffic on the same name uses `ExperimentRegistry.none()` for label-set consistency.
-PII sentinel: `OutcomeObservationConvention.builder().tagPrivacyPolicy(TagPrivacyPolicy
-.saasDefaults())` — deny-listed keys (sanitized match) and email/UUID/JWT/IPv4/hex/digit-run
-values redact to `redacted` + counter; never throws; tests assert `policy.violations(tags)` empty.
-Messaging: `recordDelivery(name, tags, attempt, work, err -> DeliveryFate.RETRY|DEAD_LETTER|DROP)`
-— success `fate=processed`, misbehaving classifier `fate=unknown` (original exception untouched);
-`MessagingTags.attemptBucket(n)` / `lagBucket(duration)` closed buckets; never tag ids/offsets.
-SLO binding: `SloCatalog.of("checkout-success").binding("checkout-success")` → `slo` KeyValue
-(undeclared ids throw at wiring); `bindTo` emits `outcome.metrics.slo.info{slo}=1` per id —
-alert on `absent(...)` for drift. Policy (target/window) stays in Sloth/OpenSLO.
-Combination guard: `OutcomeObservationConvention.builder().combinationGuard(CombinationGuard
-.builder().keys("region","product").minSupport(20).window(Duration.ofMinutes(15)).build())` —
-rare tuples emit `other` until k events in one window; reveal one-way; fails closed; not k-anonymity.
-Annotation firewall: add `outcome-metrics-processor` to `annotationProcessorPaths` — malformed
-`@MeasuredOutcome` tag pairs / blank names fail the build; non-canonical tokens warn.
-Reason registry: `OutcomeObservationConvention.builder().reasonRegistry(ReasonRegistry.builder()
-.vocabulary(MyReasons.class).build()).reasonBudget(...).build()` — unregistered reasons emit
-`reason=unknown` + `alertability=page` (self-silencing rogue reasons defeated); never throws.
-Alert routing: override `OutcomeReason.alertability()` (`PAGE` default | `TICKET` | `NONE`);
-failures emit `alertability=page|ticket|none`, successes `none`; route alerts on the tag.
-Idempotency: `recordIdempotent(name, tags, work, r -> IdempotencyOutcome.APPLIED|DUPLICATE_SKIPPED)`
-tags successes; failures keep `idempotency=none`; throw `IdempotencyException(IdempotencyReason.*)`
-for conflict/stale/missing-key (never put keys or message ids in tags).
+Builder methods: `dims(KeyValues)`; result-shaped (success path, fail loud on null/throw):
+`integrity(IntegrityClassifier)` → `integrity=ok|degraded|empty`, `idempotency(...)` →
+`idempotency=applied|duplicate_skipped`, `reconciliation(...)` → `disposition=confirmed|diverged|
+abandoned|deferred` + auto `phase=reconcile`, `grounding(...)` → `grounding=aligned|
+ignored_evidence|hallucinated_gap|no_corpus_needed`, `resultTags(tagger, "key"...)` (declared keys
+preset `none` on failure; undeclared emitted key fails loud); execution-shaped (also fire on
+failure, never throw/mask): `delivery(attempt, err -> DeliveryFate.RETRY|DEAD_LETTER|DROP)` →
+`fate` + `attempt_bucket`, `resilient(() -> RetryShadow.of(attempts, dominantReason, shadowTime,
+totalTime))` → `attempt_bucket`/`dominant_reason`/`shadow_cost` (`RetryShadow.firstTry()` for
+clean calls). Terminals: `record(Runnable|Supplier)`, `recordChecked(...)`, `startDeferred()`
+(plain builder only). Rejected at build time: `delivery`+`resilient`, duplicate declared keys,
+classified `startDeferred`. Specialized `record*` methods are deprecated delegates (removal at 1.0);
+plain `record`/`recordChecked`/`startDeferred(name, dims)` remain.
+
+## Always-on tag schema
+
+`outcome=success|failure` (always binary) · `reason=none|unknown|<code>` (never class names) ·
+`integrity=ok|degraded|empty|none` · `alertability=page|ticket|none` (failure default: page) ·
+`occurrence=first|repeat` (per `OutcomeScope`; no scope → first).
+Never tag: user/order ids, emails, UUIDs, free text, idempotency keys, message ids/offsets/
+partitions, intent/device ids, actor ids or hashes, fingerprints.
+
+## Failure reasons & routing
+
+Implement `OutcomeReasonSource.outcomeReason()` → `OutcomeReason` with `code()` (snake_case) and
+`alertability()` (`PAGE` default | `TICKET` | `NONE`). Cause chain walked; unclassified →
+`reason=unknown` + page. Route alerts on the `alertability` tag, never by regexing codes.
+
+## Async terminals
+
+`observations.of(name).dims(d).startDeferred()` → `DeferredOutcome.succeed()|fail(t)|cancel()`
+(first terminal wins, any thread). `ReactorOutcomes.record(observations, name, dims, monoOrFlux)`
+and `MutinyOutcomes.record(observations, name, dims, uniOrMulti)` bind per subscription (retry =
+two attempts); `@MeasuredOutcome` auto-binds reactive returns when the adapter is present.
+Cancel → `reason=cancelled` (schema floor), `alertability=none`. No scope in deferred mode;
+infinite streams = never-stopped observations.
+
+## Scope & virtual threads
+
+`try (var s = OutcomeScope.open()) { ... }` dedups identical series per request
+(`occurrence=repeat`); fails open across threads/caps; Spring filter: `outcome.metrics.scope
+.enabled=true` (servlet only). Virtual threads: JEP 444 confines thread-locals per VT — no carrier
+bleed (isolation-tested); pinning is execution cost, observe via `micrometer-java21`.
+
+## Enforcement pipeline (order: privacy → registry → budget → guard)
+
+```java
+new OutcomeObservations(observationRegistry, OutcomeObservationConvention.builder()
+    .tagPrivacyPolicy(TagPrivacyPolicy.saasDefaults())      // deny-keys + email/UUID/JWT/IPv4/hex/digit
+                                                            // detectors → value `redacted`, never throws
+    .reasonRegistry(ReasonRegistry.builder().vocabulary(MyReasons.class).codes("cache_stale").build())
+                                                            // unregistered → unknown + forced page
+    .reasonBudget(new ReasonBudget(8, 64))                  // over budget → other; expand() at runtime
+    .combinationGuard(CombinationGuard.builder().keys("region","product")
+        .minSupport(20).window(Duration.ofMinutes(15)).build())
+                                                            // rare tuples → other; fails closed; NOT k-anonymity
+    .build());
+```
+
+All are `MeterBinder`s; both frameworks compose them from `outcome.metrics.*` config. Tests:
+`policy.violations(tags)` empty; registry `codes()` feeds attestation.
+
+## Domain vocabularies (one-liners)
+
 Shared resources: `SharedResource.owned|borrowed|pooled(type, tiers...).withPool(id).tags()` —
-five fixed tags (`resource`,`relationship`,`consumer_tier`,`owner_tier`,`pool`); UUIDs rejected.
-Offline sync: tag phases `OutcomePhase.INTENT|COMMIT.tag()`; `recordReconciliation(name, tags,
-work, r -> ReconcileDisposition.CONFIRMED|DIVERGED|ABANDONED|DEFERRED)` adds `phase=reconcile`;
-failures keep `disposition=none`; intent ids never become tags.
-Overflow: remap to `other`; gauge `outcome.metrics.tag_value_overflows`.
+five fixed tags; UUID-shaped values rejected at construction.
+SLO binding: `SloCatalog.of("checkout-success").binding(id)` → `slo` tag (undeclared throws at
+wiring); info gauge `outcome.metrics.slo.info{slo}=1`; drift alert `absent(...)`; policy stays in
+Sloth/OpenSLO; `SloScaffold` (test module) generates Sloth `prometheus/v1` skeletons.
+Experiments: `ExperimentRegistry.builder().experiment("checkout-v2").build().slice(id, arm)`;
+unregistered collapses (`unregistered`/`unknown`); unsliced traffic uses `.none()`.
+Dual control: events tagged `DualControl.WitnessAction.*.tag()`; `recordGap(registry, name, dims,
+storeDuration, GapClosure.COMPLETED|VETOED|EXPIRED)`; roles only, never id hashes.
+Break-glass: stages `BreakGlass.Stage.ACTIVATION|ACCESS|REVIEW|CLOSURE.tag()` (alert on activation
+rate); `recordReviewLag(..., ReviewVerdict.JUSTIFIED|UNJUSTIFIED|INCONCLUSIVE)`; metrics ≠ legal
+audit trail.
+Rail divergence: `RailDivergence.recordWindow(registry, name, dims, storeDuration,
+DivergenceResolution.CONVERGED|RETURNED|ADJUSTED|WRITTEN_OFF)`; state pairs are caller dims.
+Retention: `RetentionClass.AUDIT.tag()` (untagged = ops) + `RetentionFilters.auditOnly()` on a
+`CompositeMeterRegistry` child; routing hint, never a legal guarantee.
+Replay deltas: `ReplayDelta.classify(contextDiffers, verdictFlipped, latencyShifted, costShifted)`
+— context drift voids the comparison; fingerprints never become tags.
+Messaging buckets: `MessagingTags.attemptBucket(n)` (`1|2_3|4_plus`), `lagBucket(duration)`
+(`lt_1s..gte_10m`); offsets/partitions never tagged.
+Phases: `OutcomePhase.INTENT|COMMIT|RECONCILE.tag()` for offline sync flows.
+
+## Cardinality & overflow
+
+`tag-limits[]` remap excess values → `other` (meter survives); gauge
+`outcome.metrics.tag_value_overflows`; `max-meters` registry ceiling. Label-set law: same tag keys
+on every series of a name (legacy Prometheus clients crash on drift; the current client silently
+splits aggregations — `hasConsistentLabelSets()` is the loud gate).
+
+## Testing (outcome-metrics-test)
+
+`assertThatOutcomes(registry).hasConsistentLabelSets().hasOutcomeSchema(name)
+.hasSeriesCardinalityAtMost(name, n).hasNoPrivacyViolations(policy)`;
+`ReasonVocabularyContracts.assertWellFormed(EnumClass)`; `VocabularyAttestation.builder()
+.reasons(reg).slos(cat).experiments(exp).build().assertMatches(path)` (update:
+`-Doutcome.metrics.attestation.update=true`); `OutcomePropagationContracts
+.assertScopeConfinedAcrossExecutor(pool)`; optional `OutcomeArchRules`. Plugins: diagnose
+duplicated library copies with `MetricTagValues.isForeignReasonSource(error)`.
+
+## Overhead
+
+~50 ns raw Micrometer timer; ~1.3 µs per outcome observation (Observation machinery); full
+enforcement pipeline +~0.6 µs; open scope +~30 ns (indicative, see benchmarks/).
 
 ## Samples
 
