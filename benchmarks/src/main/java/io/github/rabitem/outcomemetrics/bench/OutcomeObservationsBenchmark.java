@@ -97,7 +97,8 @@ public class OutcomeObservationsBenchmark {
                 "bench.outcome.classified",
                 dimensions,
                 () -> work(blackhole),
-                value -> MetricsTags.pairs("result=ok"));
+                value -> MetricsTags.pairs("result=ok"),
+                "result");
     }
 
     private static int work(final Blackhole blackhole) {

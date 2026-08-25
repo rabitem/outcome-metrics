@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Pipeline overhead benchmarks: `PipelineOverheadBenchmark` measures the fully composed
+  convention (registry + budget + guard + privacy) against unenforced paths and a raw timer;
+  indicative numbers published in the benchmarks README and linked from the root README
+  (full enforcement ≈ +0.6 µs over a ~1.3 µs base observation).
+
 - Mutiny terminal binding (#81): new `outcome-metrics-mutiny` module (`MutinyOutcomes.record` for
   `Uni`/`Multi` over the #39 primitive, one observation per subscription, cancellation as schema
   floor) and Quarkus interceptor auto-binding for reactive return types behind a classpath probe —
