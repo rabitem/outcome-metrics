@@ -1,6 +1,9 @@
 # JMH results
 
-Published run: **2026-08-05T20:23:51Z**
+Published run: **2026-08-05T20:23:51Z** (pre-schema baseline). For the current convention-pipeline
+overhead numbers (0.1.0-beta.3 schema with full enforcement), see the
+[Pipeline overhead](README.md#pipeline-overhead-indicative) section in the benchmarks README — that run supersedes the
+observation figures below.
 
 ## Environment
 
