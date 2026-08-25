@@ -38,7 +38,10 @@ return observations.record(
 ```
 
 The tagger overloads without declared keys are deprecated: they emit tag keys on success only,
-which Prometheus-style registries reject the first time a classified operation fails.
+which corrupts the meter family the first time a classified operation fails: legacy Prometheus
+clients reject the second registration outright, and the current client (Micrometer 1.13+) silently
+exposes the mixed label sets — splitting `sum by (...)` aggregations without any error. Verified
+against a real `PrometheusMeterRegistry` in the test suite.
 
 `MetricsTags` / result tags are sanitized (`RETRY` → `retry`).
 

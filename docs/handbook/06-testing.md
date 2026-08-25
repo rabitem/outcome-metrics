@@ -10,7 +10,7 @@ Add `outcome-metrics-test` (test scope) for the contracts plain assertions can't
 import static io.github.rabitem.outcomemetrics.test.OutcomeMetricsAssertions.assertThatOutcomes;
 
 assertThatOutcomes(meterRegistry)
-    .hasConsistentLabelSets()                       // the #60 detector: Prometheus rejects drift in prod
+    .hasConsistentLabelSets()                       // the #60 detector: modern clients expose drift silently
     .hasOutcomeSchema("order.place")                // all five schema tags present
     .hasSeriesCardinalityAtMost("order.place", 24)  // budget at the assertion site, no annotation magic
     .hasNoPrivacyViolations(TagPrivacyPolicy.saasDefaults());

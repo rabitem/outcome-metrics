@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Classified result tags now support a declared key schema (#60): new
   `record(..., resultTagger, String... declaredResultTagKeys)` and the matching `recordClassified`
   overload preset every declared key to `none`, so failures emit the same label set as successes
-  (Prometheus rejects inconsistent label sets per meter name). A tagger emitting an undeclared key
+  (inconsistent label sets crash legacy Prometheus clients and silently split aggregations on
+  current ones). A tagger emitting an undeclared key
   fails loudly. The undeclared tagger overloads are deprecated; samples migrated.
 
 - Observation conventions are consulted by Micrometer at start as well as stop; side-effectful
@@ -21,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   operation within an `OutcomeScope`).
 
 ### Added
+
+- Prometheus registry in the test matrix: the label-set claims (#60) are now verified against a
+  genuine `PrometheusMeterRegistry` scrape. Empirical correction shipped with it: the current
+  Prometheus client (Micrometer 1.13+) does **not** reject mixed label sets under one meter name —
+  it exposes them silently, splitting aggregations; only legacy clients crash. Docs and assertion
+  messages updated accordingly; `hasConsistentLabelSets()` is the only gate that fails loudly.
 
 - SLO rule scaffolding: `SloScaffold` in `outcome-metrics-test` generates Sloth `prometheus/v1`
   skeletons from the `SloCatalog` — schema-derived queries (`occurrence="first"` totals, errors

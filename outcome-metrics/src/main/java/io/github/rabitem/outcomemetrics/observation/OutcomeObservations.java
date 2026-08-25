@@ -141,8 +141,9 @@ public final class OutcomeObservations {
      *                     {@code null}
      * @return result from {@code work}
      * @deprecated result tags are emitted on success only, so an operation that can fail produces
-     * inconsistent label sets under one meter name and Prometheus-style registries reject it (see
-     * issue #60). Use {@link #record(String, KeyValues, Supplier, Function, String...)} and declare
+     * inconsistent label sets under one meter name — legacy Prometheus clients reject that at
+     * registration, and the current client silently exposes the mixed sets, splitting aggregations
+     * (issue #60). Use {@link #record(String, KeyValues, Supplier, Function, String...)} and declare
      * the tag keys — failures then emit every declared key as {@code none}.
      */
     @Deprecated(since = "0.1.0")
@@ -166,7 +167,8 @@ public final class OutcomeObservations {
      * Runs work as a result-classified observation with a declared result-tag schema.
      *
      * <p>Every declared key presets to {@code none}, so failures emit the same label set as
-     * successes (Prometheus requires consistent label sets per meter name — issue #60). A tagger
+     * successes (mixed label sets crash legacy Prometheus clients and silently split aggregations
+     * on current ones — issue #60). A tagger
      * that omits a declared key leaves {@code none}; a tagger that emits an <em>undeclared</em> key
      * fails the observation loudly — silently dropping it would re-create the bug one key at a
      * time.
@@ -342,8 +344,8 @@ public final class OutcomeObservations {
      *
      * <p>Successful results carry an {@code idempotency} tag with the classifier's disposition
      * ({@code applied} or {@code duplicate_skipped}); failures carry {@code idempotency=none}, so the
-     * tag key is present on every series of the observation name (Prometheus requires consistent
-     * label sets per meter name). Idempotency key conflicts, stale replays, and missing keys are
+     * tag key is present on every series of the observation name (label sets must stay consistent
+     * per meter name). Idempotency key conflicts, stale replays, and missing keys are
      * failures — throw {@link IdempotencyException} instead of classifying them as success shapes.
      *
      * <p>If {@code classifier} throws or returns {@code null}, the observation records a failure.

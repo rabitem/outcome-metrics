@@ -7,7 +7,8 @@ package io.github.rabitem.outcomemetrics.observation;
  * destroys SLOs, counting it as plain success hides the no-op rate. Successful idempotent operations
  * carry an {@code idempotency} tag with one of these values; failed ones carry
  * {@code idempotency=none} so the tag key stays present on every series of the observation name
- * (Prometheus requires consistent label sets per meter name).
+ * (mixed label sets crash legacy Prometheus clients and silently split aggregations on current
+ * ones).
  *
  * <p>Only genuine successes live here. A key conflict, a stale replay, or a missing key is a
  * failure — throw (for example an {@link IdempotencyException}) and let {@link IdempotencyReason}
