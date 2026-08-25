@@ -46,6 +46,29 @@ routes:
 # alertability="none" (expected business declines): dashboards only, no route
 ```
 
+## Exemplars: from alert to trace
+
+Outcome series carry OpenMetrics exemplars, so a panel on
+`{outcome="failure",reason="payment_declined"}` links straight to the trace that produced it.
+This is wiring, not a library feature — verified on Micrometer 1.17 / Prometheus client 1.3:
+
+- **Spring Boot**: nothing to add. With the Prometheus actuator endpoint and any Micrometer
+  Tracing bridge on the classpath, Boot's `PrometheusExemplarsAutoConfiguration` registers the
+  Prometheus-client `SpanContext` and the export auto-configuration passes it into the registry.
+- **Plain Micrometer**: pass a `SpanContext` yourself —
+  `new PrometheusMeterRegistry(config, new PrometheusRegistry(), clock, spanContext)`
+  (e.g. from `prometheus-metrics-tracer-otel`, or your own bridging the active span).
+
+What actually carries exemplars (empirically tested in `PrometheusExemplarTest`): timer `_count`
+samples get them out of the box; histogram `_bucket` samples get them once
+`publishPercentileHistogram` is enabled for the meter (that's what latency heatmaps click
+through) — e.g. `management.metrics.distribution.percentiles-histogram.demo.order.place=true`.
+Exemplars render only under OpenMetrics content negotiation (`application/openmetrics-text`), the
+Prometheus server needs `--enable-feature=exemplar-storage`, and Grafana needs the exemplar →
+trace datasource link configured. One async caveat: the `SpanContext` is consulted on the
+*recording* thread, so deferred/reactive outcomes (#39) attach the span active at the terminal
+signal — correct under context propagation, absent without it.
+
 ## Alerts worth having
 
 | Signal | Meaning |
