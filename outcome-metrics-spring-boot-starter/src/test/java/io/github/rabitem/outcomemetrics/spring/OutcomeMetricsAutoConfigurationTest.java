@@ -26,7 +26,7 @@ class OutcomeMetricsAutoConfigurationTest {
             assertThat(context).hasBean("cacheMeterTagNormalizer");
             assertThat(context).hasBean("meterCardinalityCeiling");
             assertThat(context).doesNotHaveBean("meterTagValueLimiter");
-            assertThat(context.getBeansOfType(MeterFilter.class)).hasSize(2);
+            assertThat(context.getBeansOfType(MeterFilter.class)).hasSize(3);
         });
     }
 
