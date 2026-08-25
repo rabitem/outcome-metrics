@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.1.0-beta.3] - 2026-08-25
+
 This wave takes the library from a single `record(...)` helper to a full outcome-observation
 contract: a composable recording builder, an always-on five-tag schema
 (`outcome`/`reason`/`integrity`/`alertability`/`occurrence`), opt-in classifications

@@ -19,7 +19,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
-        <outcome-metrics.version>0.1.0-beta.2</outcome-metrics.version>
+        <outcome-metrics.version>0.1.0-beta.3</outcome-metrics.version>
         <spring-boot.version>4.1.0</spring-boot.version>
         <quarkus.platform.version>3.38.1</quarkus.platform.version>
     </properties>
