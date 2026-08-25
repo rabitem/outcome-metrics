@@ -171,6 +171,18 @@ public class OutcomeMetricsAutoConfiguration {
      * @param properties the bound metrics properties; must not be {@code null}
      * @return the cache tag normalizer, never {@code null}
      */
+    /**
+     * Drops the handler-added open-vocabulary {@code error} tag from outcome meters (issue #97).
+     *
+     * @return the error-tag filter
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "outcomeErrorTagFilter")
+    @ConditionalOnProperty(prefix = "outcome.metrics", name = "drop-error-tag", havingValue = "true", matchIfMissing = true)
+    MeterFilter outcomeErrorTagFilter() {
+        return MetricsMeterFilters.dropRedundantErrorTag();
+    }
+
     @Bean
     @ConditionalOnMissingBean(name = "cacheMeterTagNormalizer")
     @ConditionalOnProperty(prefix = "outcome.metrics.cache", name = "normalize-tags", havingValue = "true", matchIfMissing = true)
